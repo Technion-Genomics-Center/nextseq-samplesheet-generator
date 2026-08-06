@@ -10,26 +10,31 @@ Single self-contained HTML file — no install, no server, no dependencies. It a
 
 ## What it does
 
-1. **Run setup** — project/run name, index kit, index plate ID, and sequencing cycles (Read 1 / Read 2, with Index 1 / Index 2 auto-detected from the chosen indexes and overridable).
-2. **Samples** — type them in, or bulk-paste two columns. Barcode numbers, plate wells and well aliases all resolve:
+1. **Run setup** — run name and sequencing cycles (Read 1 / Read 2, with Index 1 / Index 2 auto-detected from the chosen indexes and overridable).
+2. **Projects** — a run can hold **several projects, each with its own index kit and plate**. Add a project per customer/application; samples are assigned to one. With one project the extra controls stay hidden, so simple runs look exactly as before.
+3. **Samples** — type them in, or bulk-paste. Barcode numbers, plate wells and well aliases all resolve:
 
    ```
-   Sample ID	Barcode
-   1	97
-   2	98
+   Sample ID	Barcode	Project
+   1	97	NaamaG_RNAseq
+   2	98	NaamaG_RNAseq
+   e1	A01	DoritExome
    ```
 
-   Accepts `A01`, `A1`, `1A`, `12H`, Smart-seq codes like `U025`, and plate barcode numbers (`97` → well `A01`). A header row is skipped automatically.
-3. **Validation (live)**
-   - Sample names must be **unique** — duplicates are flagged.
-   - Spaces and special characters are converted to `_` (every change is listed).
-   - Index sequences must be unique with **Hamming distance ≥ 3** on the combined i7+i5 — identical or too-similar pairs are flagged.
-   - If index lengths differ, shorter indexes are padded per the kit's padding rule (NEB 8 bp → 10 bp adds `AT` to i7 and `AC` to i5); if a kit has no padding rule defined, that's an error instead.
+   Accepts `A01`, `A1`, `1A`, `12H`, Smart-seq codes like `U025`, and plate barcode numbers (`97` → well `A01`). A header row is skipped automatically. The **third column (project) is optional** — without it, rows go to the project picked in the "assign to" dropdown; a project name that doesn't exist yet is created.
+4. **Validation (live)** — always across the **whole run**, since all projects are demultiplexed together:
+   - Sample names must be **unique across the entire run**, including between projects.
+   - Spaces and special characters are converted to `_` (every change is listed). Project names too — they become the `Sample_Project` folder.
+   - Index sequences must be unique with **Hamming distance ≥ 3** on the combined i7+i5 — checked across projects, not just within one.
+   - **Mixed index lengths** (e.g. an 8 bp kit beside a 10 bp kit) are reconciled automatically:
+     - if the shorter kit has a padding rule, it is padded up (NEB 8 bp → 10 bp adds `AT` to i7, `AC` to i5);
+     - otherwise **all indexes are trimmed down to the shortest length**, with a warning. Uniqueness is then re-checked on the trimmed sequences, so any collision that trimming creates is caught as an error.
+   - Projects with no name, duplicate project names, and projects with no samples are flagged.
    - Invalid or reused wells are caught.
-4. **Output**
+5. **Output**
    - **Copy for BaseSpace** — tab-separated rows to paste straight into the [Run Planning sample table](https://basespace.illumina.com/run-planning/config/1/sample-analysis-setup).
-   - **Sample sheet .csv** — BCL Convert v2 file to upload instead.
-   - **Records .csv** — full archive table (plate, well, index IDs, raw + final sequences), named `YYYY-MM-DD_Project.csv`.
+   - **Sample sheet .csv** — BCL Convert v2 file to upload instead. Multi-project runs get a **`Sample_Project` column**, so BCL Convert writes FASTQs into one folder per project.
+   - **Records .csv** — full archive table (project, plate, well, index IDs, raw + final sequences, and whether each index was padded or trimmed), named `YYYY-MM-DD_Run.csv`.
 
 ### Index orientation
 
