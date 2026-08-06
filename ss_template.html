@@ -1,0 +1,782 @@
+<meta charset="utf-8">
+<title>NextSeq 2000 SampleSheet Generator</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root{
+  --bg:#0f1720; --panel:#16212e; --panel2:#1c2a3a; --line:#2b3b4e; --ink:#e7eef6;
+  --muted:#93a4b7; --accent:#4ea1ff; --accent2:#2b6fb3; --ok:#37c07a; --warn:#f2b544; --err:#ff6b6b;
+  --chip:#22344a; --radius:12px; --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: light){
+  :root{--bg:#eef2f6;--panel:#fff;--panel2:#f4f7fa;--line:#dbe2ea;--ink:#14212e;--muted:#5d6f81;
+    --accent:#1f6fd6;--accent2:#155aad;--chip:#eaf1fb;}
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,Segoe UI,system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--ink);font-size:14px;line-height:1.45}
+header{padding:18px 22px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,var(--panel),transparent)}
+header h1{margin:0;font-size:19px;letter-spacing:.2px}
+header p{margin:4px 0 0;color:var(--muted);font-size:13px}
+.wrap{max-width:1180px;margin:0 auto;padding:22px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:22px;align-items:start}
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px;margin-bottom:22px}
+.card h2{margin:0 0 14px;font-size:14px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted)}
+label{display:block;font-size:12px;color:var(--muted);margin:0 0 5px}
+.field{margin-bottom:14px}
+input,select,textarea{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--ink);
+  border-radius:9px;padding:9px 11px;font-size:14px;font-family:inherit;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+textarea{font-family:var(--mono);font-size:12.5px;min-height:120px;resize:vertical}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+button{cursor:pointer;border:1px solid var(--line);background:var(--panel2);color:var(--ink);
+  border-radius:9px;padding:8px 14px;font-size:13px;font-family:inherit}
+button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+button.primary:hover{background:var(--accent2)}
+button.ghost{background:transparent}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.spacer{flex:1}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
+th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+td.idx{color:var(--muted);width:34px;text-align:right;font-variant-numeric:tabular-nums}
+.smpl td input{padding:6px 8px;font-size:13px}
+.smpl td.del button{padding:3px 8px;color:var(--err);border-color:transparent}
+.mono{font-family:var(--mono)}
+.seq{font-family:var(--mono);font-size:12px;letter-spacing:.5px}
+.tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:20px;background:var(--chip);color:var(--muted);margin-left:6px}
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:2px 8px;border-radius:20px}
+.pill.err{background:rgba(255,107,107,.15);color:var(--err)}
+.pill.warn{background:rgba(242,181,68,.15);color:var(--warn)}
+.pill.ok{background:rgba(55,192,122,.15);color:var(--ok)}
+.issues{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.issues li{display:flex;gap:9px;align-items:flex-start;padding:9px 11px;border-radius:9px;border:1px solid var(--line);background:var(--panel2)}
+.issues li.err{border-color:rgba(255,107,107,.4)}
+.issues li.warn{border-color:rgba(242,181,68,.4)}
+.issues li.ok{border-color:rgba(55,192,122,.35)}
+.dot{width:8px;height:8px;border-radius:50%;margin-top:6px;flex:none}
+.dot.err{background:var(--err)}.dot.warn{background:var(--warn)}.dot.ok{background:var(--ok)}
+.issues small{color:var(--muted);display:block;margin-top:2px}
+pre.out{background:#0b1119;color:#cfe3ff;border:1px solid var(--line);border-radius:9px;padding:14px;
+  font-family:var(--mono);font-size:11.5px;line-height:1.5;overflow:auto;max-height:460px;white-space:pre;margin:0}
+@media(prefers-color-scheme:light){pre.out{background:#0d1826;color:#d5e8ff}}
+.cell-bad input{border-color:var(--err)!important;background:rgba(255,107,107,.08)}
+.cell-warn input{border-color:var(--warn)!important;background:rgba(242,181,68,.08)}
+.hint{color:var(--muted);font-size:12px;margin:-6px 0 10px}
+.count{font-size:12px;color:var(--muted)}
+.chkline{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink);margin-bottom:12px}
+.chkline input{width:auto}
+.legend{font-size:11px;color:var(--muted);margin-top:8px}
+details#manageCard summary{cursor:pointer;list-style:none;font-size:14px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:600;outline:none}
+details#manageCard summary::-webkit-details-marker{display:none}
+details#manageCard summary::before{content:'▸ ';color:var(--accent)}
+details#manageCard[open] summary::before{content:'▾ '}
+a.dl{text-decoration:none}
+</style>
+
+<header>
+  <h1>NextSeq 2000 SampleSheet Generator <span class="tag">v2 / BCLConvert</span></h1>
+  <p>Enter run details and samples. Names, index uniqueness (Hamming), and index length are validated live. Export an Illumina v2 sample sheet.</p>
+</header>
+
+<div class="wrap">
+ <div class="grid">
+  <!-- LEFT: inputs -->
+  <div>
+   <div class="card">
+    <h2>1 · Run setup</h2>
+    <div class="field">
+      <label>Project / Run name</label>
+      <input id="proj" placeholder="e.g. NaamaG_RNAseq" autocomplete="off">
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label>Index plate type (kit)</label>
+        <select id="kit"></select>
+      </div>
+      <div class="field">
+        <label>Index plate ID</label>
+        <select id="plate"></select>
+      </div>
+    </div>
+    <label style="margin-bottom:8px">Sequencing setting</label>
+    <div class="row2">
+      <div class="field"><label>Read 1 cycles</label><input id="r1" type="number" min="0" placeholder="151" value="151"></div>
+      <div class="field"><label>Read 2 cycles <span class="count">(0 = single-end)</span></label><input id="r2" type="number" min="0" placeholder="151" value="151"></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Index 1 cycles <span class="count" id="i1auto"></span></label><input id="i1c" type="number" min="0" placeholder="auto"></div>
+      <div class="field"><label>Index 2 cycles <span class="count" id="i2auto"></span></label><input id="i2c" type="number" min="0" placeholder="auto"></div>
+    </div>
+    <div class="hint" style="margin-top:-6px">Index cycles are inferred from the selected indexes; leave blank for auto, or type a value to override (shorter indexes are N-padded in OverrideCycles).</div>
+    <div class="field">
+      <label>Index 2 (i5) orientation</label>
+      <select id="orient">
+        <option value="fwd" selected>Forward — BaseSpace / NextSeq 2000 (recommended)</option>
+        <option value="rc">Reverse-complement i5 (legacy workflow)</option>
+      </select>
+    </div>
+    <div id="plateinfo" class="hint"></div>
+   </div>
+
+   <div class="card">
+    <h2>2 · Samples</h2>
+    <div class="chkline"><input type="checkbox" id="mixed"><label for="mixed" style="margin:0;color:var(--ink)">Samples use different plates (advanced / mixed-plate run)</label></div>
+    <div class="toolbar">
+      <button id="addRow">+ Add row</button>
+      <button id="clearRows" class="ghost">Clear</button>
+      <span class="spacer"></span>
+      <span class="count" id="rowCount"></span>
+    </div>
+    <div style="overflow:auto">
+      <table id="smplTable"><thead></thead><tbody></tbody></table>
+    </div>
+    <div class="field" style="margin-top:16px">
+      <label>Bulk paste — two columns <span class="mono">Sample_Name &lt;tab/comma&gt; Well&nbsp;or&nbsp;Barcode</span> <span class="count">(header row auto-skipped; accepts A01 / 1A / barcode 97)</span></label>
+      <textarea id="bulk" placeholder="Sample ID	Barcode&#10;1	97&#10;2	98&#10;3	99"></textarea>
+      <div class="toolbar" style="margin-top:8px">
+        <button id="applyBulk" class="primary">Load rows from paste</button>
+        <button id="appendBulk" class="ghost">Append instead of replace</button>
+      </div>
+    </div>
+   </div>
+  </div>
+
+  <!-- RIGHT: validation + output -->
+  <div>
+   <div class="card">
+    <h2>3 · Validation</h2>
+    <div id="summary" class="toolbar" style="margin-bottom:14px"></div>
+    <ul class="issues" id="issues"></ul>
+    <div class="legend">Hamming check compares each pair's combined index (i7+i5). A distance &lt; 3 (fewer than 3 differing bases) risks demultiplexing collisions and is flagged.</div>
+   </div>
+
+   <div class="card">
+    <h2>4 · Sample sheet output</h2>
+    <div class="toolbar">
+      <button id="bsCopy" class="primary">📋 Copy for BaseSpace</button>
+      <button id="download" class="ghost">⬇ Sample sheet .csv</button>
+      <button id="records" class="ghost">⬇ Records .csv</button>
+      <button id="copy" class="ghost">Copy sheet text</button>
+      <span class="spacer"></span>
+      <span class="count" id="outName"></span>
+    </div>
+    <div class="hint" style="margin-top:-4px"><b>Copy for BaseSpace</b> → paste straight into the <a href="https://basespace.illumina.com/run-planning/config/1/sample-analysis-setup" target="_blank" rel="noopener">Run Planning sample table</a> (tab-separated: Sample_ID, Index, Index2). “Sample sheet” = <b>BCL Convert v2</b> file to upload instead · <b>Index &amp; Index2 both forward</b> (BaseSpace reverse-complements i5 for the NextSeq 2000). “Records” = full archive table.</div>
+    <pre class="out" id="out">—</pre>
+   </div>
+  </div>
+ </div>
+
+ <details class="card" id="manageCard">
+  <summary>➕ Manage index plates <span class="count" style="text-transform:none;letter-spacing:0">— add your own, saved in this browser</span></summary>
+  <div class="row2" style="align-items:start;margin-top:16px">
+   <div>
+    <h2 style="font-size:12px">Add an index plate</h2>
+    <div class="row2">
+      <div class="field"><label>Kit group</label><input id="np_kit" list="kitlist" placeholder="e.g. NEBNext_UDI or a new name"><datalist id="kitlist"></datalist></div>
+      <div class="field"><label>Plate ID (unique)</label><input id="np_id" placeholder="e.g. Neb_5"></div>
+    </div>
+    <div class="field">
+      <label>Upload the company plate file <span class="count">(.csv, .tsv, .xlsx)</span></label>
+      <label class="ghost" style="display:inline-block;border:1px solid var(--line);border-radius:9px;padding:8px 14px;cursor:pointer">📄 Choose file<input id="np_file" type="file" accept=".csv,.tsv,.txt,.xlsx,.xls" style="display:none"></label>
+      <span id="np_fmsg" class="count" style="margin-left:8px"></span>
+    </div>
+    <div id="np_map" class="field" style="display:none">
+      <label>Match the file's columns <span class="count">(auto-detected — adjust if needed)</span></label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div><label>Well</label><select data-map="well"></select></div>
+        <div><label>I7_Index_ID <span class="count">(optional)</span></label><select data-map="i7id"></select></div>
+        <div><label>index (i7)</label><select data-map="i7"></select></div>
+        <div><label>I5_Index_ID <span class="count">(optional)</span></label><select data-map="i5id"></select></div>
+        <div><label>index2 (i5) <span class="count">(optional)</span></label><select data-map="i5"></select></div>
+      </div>
+      <div class="toolbar" style="margin-top:8px"><button id="np_apply" class="ghost">Apply columns → table</button></div>
+    </div>
+    <div class="field">
+      <label>Plate table <span class="count">— from the file above, or paste directly:</span> <span class="mono">Well, I7_Index_ID, index, I5_Index_ID, index2</span> <span class="count">(header auto-skipped; index2 optional)</span></label>
+      <textarea id="np_tbl" placeholder="Well,I7_Index_ID,index,I5_Index_ID,index2&#10;A01,IDX01,AAGGAGCG,IDX01,GACTATTG&#10;B01,IDX02,GTCATCTA,IDX02,GCGGTTCT"></textarea>
+    </div>
+    <div class="toolbar"><button id="np_save" class="primary">Save plate</button><span id="np_msg" class="count"></span></div>
+   </div>
+   <div>
+    <h2 style="font-size:12px">Your custom plates</h2>
+    <div id="customList" class="count">None yet.</div>
+    <div class="toolbar" style="margin-top:14px">
+      <button id="cust_git" class="primary">⬇ shared_plates.json (for git)</button>
+      <button id="cust_export" class="ghost">⬇ Backup</button>
+      <label class="ghost" style="border:1px solid var(--line);border-radius:9px;padding:8px 14px;cursor:pointer">⬆ Restore<input id="cust_import" type="file" accept=".json" style="display:none"></label>
+    </div>
+    <div class="hint" style="margin-top:12px"><b>To share plates with the whole lab:</b> click <b>shared_plates.json</b> and commit that file to the repo root. Everyone loading the app then gets those plates automatically. Plates already published this way are marked <i>lab</i> below.</div>
+   </div>
+  </div>
+ </details>
+</div>
+
+<script>
+const BUILTIN = /*DATA_PLACEHOLDER*/;
+let DATA = JSON.parse(JSON.stringify(BUILTIN));
+</script>
+<script>
+const $=(id)=>document.getElementById(id);
+let state={ samples:[{name:'',well:'',plate:''}], mixed:false };
+
+// ---------- helpers ----------
+function sanitizeName(raw){
+  let s=(raw||'').trim();
+  // apply metadata char map + any non [A-Za-z0-9_-] -> _
+  let out='';
+  for(const ch of s){ out += /[A-Za-z0-9_\-]/.test(ch) ? ch : '_'; }
+  return out;
+}
+function resolveWell(raw, plateId){
+  if(!raw) return null;
+  const plate=DATA.plates[plateId];
+  if(!plate) return null;
+  const wells=new Set(plate.map(w=>w.well.toUpperCase()));
+  let t=raw.trim().toUpperCase().replace(/\s+/g,'');
+  if(wells.has(t)) return t;
+  // alias map (1A -> A01 etc.)
+  if(DATA.wellalias[t] && wells.has(DATA.wellalias[t].toUpperCase())) return DATA.wellalias[t].toUpperCase();
+  // zero-pad A1 -> A01
+  let m=t.match(/^([A-H])0*([0-9]{1,2})$/);
+  if(m){ let z=m[1]+String(m[2]).padStart(2,'0'); if(wells.has(z)) return z; }
+  // numeric-letter 1A / 12H style already covered by alias; try alias of padded
+  return null;
+}
+function wellRec(plateId,well){ return (DATA.plates[plateId]||[]).find(w=>w.well.toUpperCase()===well); }
+function hamming(a,b){
+  const n=Math.max(a.length,b.length); let d=Math.abs(a.length-b.length);
+  for(let i=0;i<Math.min(a.length,b.length);i++) if(a[i]!==b[i]) d++;
+  return d;
+}
+function revcomp(s){ const m={A:'T',T:'A',G:'C',C:'G',N:'N'}; return (s||'').toUpperCase().split('').reverse().map(c=>m[c]||c).join(''); }
+function importCustom(file){ if(!file)return; const rd=new FileReader();
+  rd.onload=()=>{ try{ saveCustom(JSON.parse(rd.result)); rebuildData(); }catch(e){ alert('Invalid backup file (not JSON).'); } };
+  rd.readAsText(file); }
+
+// ---------- core compute ----------
+function compute(){
+  const plateRun=$('plate').value;
+  const rows=state.samples.map((s,i)=>{
+    const plateId = state.mixed && s.plate ? s.plate : plateRun;
+    const nameRaw=s.name||'';
+    const name=sanitizeName(nameRaw);
+    const well=resolveWell(s.well, plateId);
+    const rec= well? wellRec(plateId,well):null;
+    return {i, nameRaw, name, changed: name!==nameRaw.trim(), wellRaw:s.well, plateId, well, rec,
+            i7: rec?rec.i7:'', i5: rec?rec.i5:'', i7id:rec?rec.i7id:'', i5id:rec?rec.i5id:''};
+  });
+  // padding: equalize index lengths using metadata additions
+  const filled=rows.filter(r=>r.rec);
+  const maxI7=Math.max(0,...filled.map(r=>r.i7.length));
+  const maxI5=Math.max(0,...filled.map(r=>r.i5.length));
+  let padNotes=[]; let padUnable=[];
+  filled.forEach(r=>{
+    r.i7f=r.i7; r.i5f=r.i5; r.padded=false;
+    const add=DATA.padd[r.plateId];
+    if(r.i7.length<maxI7){
+      if(add&&add.i1&&(r.i7.length+add.i1.length)===maxI7){ r.i7f=r.i7+add.i1; r.padded=true; }
+      else padUnable.push(r);
+    }
+    if(r.i5.length<maxI5){
+      if(add&&add.i2&&(r.i5.length+add.i2.length)===maxI5){ r.i5f=add.i2+r.i5; r.padded=true; }
+      else if(!padUnable.includes(r)) padUnable.push(r);
+    }
+  });
+  const anyPadded=filled.some(r=>r.padded);
+  return {rows, filled, maxI7, maxI5, anyPadded, padUnable};
+}
+
+// ---------- validation ----------
+function validate(c){
+  const issues=[]; const badName=new Set(), badWell=new Set(), collide=new Set();
+  // sample names present
+  const named=c.rows.filter(r=>r.nameRaw.trim());
+  // special-char changes
+  const changed=named.filter(r=>r.changed);
+  if(changed.length) issues.push({t:'warn',h:`${changed.length} name(s) had spaces/special characters replaced with "_"`,
+    s:changed.map(r=>`“${r.nameRaw.trim()}” → ${r.name}`).join('  ·  ')});
+  changed.forEach(r=>badName.add(r.i));
+  // duplicate names
+  const byName={}; named.forEach(r=>{(byName[r.name]=byName[r.name]||[]).push(r)});
+  const dups=Object.entries(byName).filter(([k,v])=>v.length>1);
+  if(dups.length){ issues.push({t:'err',h:`Duplicate sample name(s): ${dups.map(d=>d[0]).join(', ')}`,
+    s:'Sample names must be unique.'}); dups.forEach(d=>d[1].forEach(r=>badName.add(r.i))); }
+  // wells
+  const rowsWithWell=c.rows.filter(r=>r.wellRaw&&r.wellRaw.trim());
+  const unresolved=rowsWithWell.filter(r=>!r.rec);
+  if(unresolved.length){ issues.push({t:'err',h:`${unresolved.length} well(s) not found in the selected plate`,
+    s:unresolved.map(r=>`row ${r.i+1}: “${r.wellRaw}”`).join(', ')}); unresolved.forEach(r=>badWell.add(r.i)); }
+  // duplicate wells (same plate+well used twice)
+  const byWell={}; c.filled.forEach(r=>{const k=r.plateId+'|'+r.well;(byWell[k]=byWell[k]||[]).push(r)});
+  const dupW=Object.entries(byWell).filter(([k,v])=>v.length>1);
+  if(dupW.length){ issues.push({t:'warn',h:`Same index well used by multiple samples`,
+    s:dupW.map(([k,v])=>k.split('|')[1]+' ×'+v.length).join(', ')}); dupW.forEach(([k,v])=>v.forEach(r=>badWell.add(r.i))); }
+  // index length uniformity + padding
+  const lensI7=new Set(c.filled.map(r=>r.i7.length));
+  const lensI5=new Set(c.filled.map(r=>r.i5.length));
+  if(c.filled.length && (lensI7.size>1||lensI5.size>1)){
+    if(c.padUnable.length){
+      issues.push({t:'err',h:`Index lengths differ and cannot be equalized`,
+        s:`No padding bases defined for: ${[...new Set(c.padUnable.map(r=>r.plateId))].join(', ')}. Mixed index lengths will fail on the run.`});
+    } else if(c.anyPadded){
+      issues.push({t:'warn',h:`Index lengths differed — shorter indexes were padded to ${c.maxI7}/${c.maxI5} bp`,
+        s:`Added bases per metadata table (e.g. NEB +AT on i7, +AC on i5). Padded sequences are used in the output.`});
+    }
+  }
+  // hamming < 3 on combined final index
+  const combo=c.filled.map(r=>({r,seq:(r.i7f||r.i7)+(r.i5f||r.i5)}));
+  const pairs=[];
+  for(let a=0;a<combo.length;a++)for(let b=a+1;b<combo.length;b++){
+    const d=hamming(combo[a].seq,combo[b].seq);
+    if(d<3){ pairs.push({a:combo[a].r,b:combo[b].r,d}); collide.add(combo[a].r.i); collide.add(combo[b].r.i); }
+  }
+  if(pairs.length){
+    const dup=pairs.filter(p=>p.d===0), near=pairs.filter(p=>p.d>0);
+    if(dup.length) issues.push({t:'err',h:`${dup.length} identical index pair(s) — indexes must be unique`,
+      s:dup.map(p=>`${lbl(p.a)} ≡ ${lbl(p.b)}`).join('  ·  ')});
+    if(near.length) issues.push({t:'err',h:`${near.length} index pair(s) with Hamming distance < 3`,
+      s:near.map(p=>`${lbl(p.a)} ↔ ${lbl(p.b)} (d=${p.d})`).join('  ·  ')});
+  }
+  function lbl(r){return r.name||('row '+(r.i+1))}
+  const ok=issues.filter(i=>i.t==='err').length===0;
+  return {issues, badName, badWell, collide, ok, nFilled:c.filled.length};
+}
+
+// ---------- sample sheet text ----------
+function ocSeg(cycles,actual){ cycles=+cycles||0; if(!cycles)return ''; if(actual>=cycles)return 'I'+cycles; return 'I'+actual+(cycles-actual>0?'N'+(cycles-actual):''); }
+function getCycles(c){
+  const v=id=>$(id).value.trim();
+  const r1 = v('r1')!==''?+v('r1'):0;
+  const r2 = v('r2')!==''?+v('r2'):0;
+  const i1 = v('i1c')!==''?+v('i1c'):(c.maxI7||0);
+  const i2 = v('i2c')!==''?+v('i2c'):(c.maxI5||0);
+  return {r1,r2,i1,i2};
+}
+function buildSheet(c){
+  const proj=$('proj').value.trim()||'Run';
+  const i7len=c.maxI7||0, i5len=c.maxI5||0;
+  const cy=getCycles(c);
+  const oc=[]; if(cy.r1)oc.push('Y'+cy.r1);
+  if(cy.i1)oc.push(ocSeg(cy.i1,i7len)); if(cy.i2)oc.push(ocSeg(cy.i2,i5len));
+  if(cy.r2)oc.push('Y'+cy.r2);
+  const L=[];
+  const rc = $('orient').value==='rc';
+  L.push('[Header]'); L.push('FileFormatVersion,2'); L.push('RunName,'+proj);
+  L.push('InstrumentPlatform,NextSeq1k2k');
+  if(!rc) L.push('IndexOrientation,Forward');   // forward i5; BaseSpace/BCLConvert RCs for the instrument
+  L.push('');
+  L.push('[Reads]'); L.push('Read1Cycles,'+(cy.r1||'')); if(cy.r2)L.push('Read2Cycles,'+cy.r2);
+  L.push('Index1Cycles,'+cy.i1); if(cy.i2)L.push('Index2Cycles,'+cy.i2); L.push('');
+  L.push('[BCLConvert_Settings]'); L.push('SoftwareVersion,4.2.7'); L.push('NoLaneSplitting,TRUE');
+  L.push('OverrideCycles,'+oc.join(';')); L.push('FastqCompressionFormat,gzip'); L.push('');
+  L.push('[BCLConvert_Data]');
+  const hasI5=cy.i2>0 && i5len>0;
+  L.push('Sample_ID,index'+(hasI5?',index2':''));
+  c.rows.filter(r=>r.rec&&r.name).forEach(r=>{
+    let i5v=r.i5f||r.i5; if(rc) i5v=revcomp(i5v);
+    L.push([r.name, r.i7f||r.i7].concat(hasI5?[i5v]:[]).join(','));
+  });
+  return L.join('\r\n');
+}
+
+// ---------- rendering ----------
+function renderPlates(){
+  const kit=$('kit').value; const sel=$('plate'); sel.innerHTML='';
+  (DATA.kit2plates[kit]||[]).forEach(p=>{
+    const o=document.createElement('option'); o.value=p; o.textContent=p;
+    if(!DATA.plates[p]) o.textContent=p+' (no index data)';
+    sel.appendChild(o);
+  });
+}
+function plateInfo(){
+  const p=$('plate').value; const rec=DATA.plates[p];
+  const el=$('plateinfo');
+  if(!rec){ el.innerHTML='<span class="pill warn">No index sequences available for this plate.</span>'; return; }
+  const len=rec[0].i7.length; const w=rec.length;
+  el.innerHTML=`Plate <b>${p}</b> · ${w} wells · index length <b>${len} bp</b> · wells: <span class="mono">${rec[0].well}–${rec[rec.length-1].well}</span>`;
+}
+function renderTable(v){
+  const plate=$('plate').value;
+  const thead=$('smplTable').querySelector('thead');
+  thead.innerHTML='<tr><th class="idx">#</th><th>Sample name</th>'+(state.mixed?'<th>Plate</th>':'')+
+    '<th>Well</th><th>i7 (index)</th><th>i5 (index2)</th><th></th></tr>';
+  const tb=$('smplTable').querySelector('tbody'); tb.innerHTML='';
+  const c=compute(); v=v||validate(c);
+  const wells=(DATA.plates[plate]||[]).map(w=>w.well);
+  state.samples.forEach((s,i)=>{
+    const r=c.rows[i];
+    const tr=document.createElement('tr'); tr.className='smpl';
+    const nameCls = v.badName.has(i)?'cell-warn':'';
+    const wellCls = v.badWell.has(i)?'cell-bad':(v.collide.has(i)?'cell-warn':'');
+    let plateCell='';
+    if(state.mixed){
+      const opts=Object.keys(DATA.plates).map(p=>`<option ${p===r.plateId?'selected':''}>${p}</option>`).join('');
+      plateCell=`<td><select data-i="${i}" data-k="plate">${opts}</select></td>`;
+    }
+    tr.innerHTML=`<td class="idx">${i+1}</td>`+
+      `<td class="${nameCls}"><input data-i="${i}" data-k="name" value="${esc(s.name)}" placeholder="sample name"></td>`+
+      plateCell+
+      `<td class="${wellCls}"><input list="wl" data-i="${i}" data-k="well" value="${esc(s.well)}" placeholder="A01" style="max-width:90px"></td>`+
+      `<td class="seq">${r.i7f&&r.i7f!==r.i7?'<span style="color:var(--warn)">'+r.i7f+'</span>':(r.i7||'<span class="count">—</span>')}</td>`+
+      `<td class="seq">${r.i5f&&r.i5f!==r.i5?'<span style="color:var(--warn)">'+r.i5f+'</span>':(r.i5||'<span class="count">—</span>')}</td>`+
+      `<td class="del"><button data-del="${i}">✕</button></td>`;
+    tb.appendChild(tr);
+  });
+  // datalist of valid wells
+  let dl=$('wl'); if(!dl){dl=document.createElement('datalist');dl.id='wl';document.body.appendChild(dl);}
+  dl.innerHTML=wells.map(w=>`<option value="${w}">`).join('');
+  $('rowCount').textContent=`${state.samples.length} row(s) · ${c.filled.length} with index`;
+}
+function esc(s){return (s||'').replace(/"/g,'&quot;').replace(/</g,'&lt;')}
+function renderIssues(v){
+  const box=$('issues'); box.innerHTML='';
+  if(v.nFilled===0){ box.innerHTML='<li class="ok"><span class="dot ok"></span><div>Add samples with valid wells to begin validation.</div></li>'; }
+  else if(v.issues.length===0){ box.innerHTML='<li class="ok"><span class="dot ok"></span><div><b>All checks passed.</b><small>Unique names, unique indexes with Hamming ≥ 3, uniform index length.</small></div></li>'; }
+  v.issues.forEach(it=>{
+    const li=document.createElement('li'); li.className=it.t;
+    li.innerHTML=`<span class="dot ${it.t}"></span><div><b>${it.h}</b><small>${it.s||''}</small></div>`;
+    box.appendChild(li);
+  });
+  const sum=$('summary'); const nErr=v.issues.filter(i=>i.t==='err').length, nWarn=v.issues.filter(i=>i.t==='warn').length;
+  sum.innerHTML=`<span class="pill ${nErr?'err':'ok'}">${nErr} error${nErr!=1?'s':''}</span>`+
+    `<span class="pill ${nWarn?'warn':'ok'}">${nWarn} warning${nWarn!=1?'s':''}</span>`+
+    `<span class="pill ok">${v.nFilled} sample${v.nFilled!=1?'s':''}</span>`;
+}
+function renderOut(c,v){
+  $('i1auto').textContent = c.maxI7?('· detected '+c.maxI7+' bp'):'';
+  $('i2auto').textContent = c.maxI5?('· detected '+c.maxI5+' bp'):'';
+  const txt = v.nFilled? buildSheet(c) : '—';
+  $('out').textContent=txt;
+  const proj=($('proj').value.trim()||'Run').replace(/[^A-Za-z0-9_\-]/g,'_');
+  $('outName').textContent=`SampleSheet_${proj}.csv`;
+  $('out').dataset.name=`SampleSheet_${proj}.csv`;
+}
+
+function refresh(){
+  const c=compute(); const v=validate(c);
+  renderTable(v); renderIssues(v); renderOut(c,v);
+}
+
+// ---------- custom data (localStorage overlay on BUILTIN) ----------
+function loadCustom(){ try{return JSON.parse(localStorage.getItem('ss_custom'))||{}}catch(e){return {}} }
+function saveCustom(c){ localStorage.setItem('ss_custom',JSON.stringify(c)); }
+let SHARED={};   // lab plates loaded from shared_plates.json in the repo (read-only here)
+function mergeSet(c){
+  (c.kitnames||[]).forEach(k=>{ if(!DATA.kitnames.includes(k)) DATA.kitnames.push(k); });
+  Object.entries(c.kit2plates||{}).forEach(([k,arr])=>{ DATA.kit2plates[k]=DATA.kit2plates[k]||[];
+    arr.forEach(p=>{ if(!DATA.kit2plates[k].includes(p)) DATA.kit2plates[k].push(p); }); });
+  Object.assign(DATA.plates, c.plates||{});
+}
+function applyCustom(){ mergeSet(SHARED); mergeSet(loadCustom()); }
+// merge local custom plates into the shared set and download it for committing to git
+function exportForGit(){
+  const c=loadCustom(); const out=JSON.parse(JSON.stringify(SHARED||{}));
+  out.plates=Object.assign({},out.plates||{},c.plates||{});
+  out.kit2plates=out.kit2plates||{}; out.kitnames=out.kitnames||[];
+  Object.entries(c.kit2plates||{}).forEach(([k,arr])=>{ out.kit2plates[k]=out.kit2plates[k]||[];
+    arr.forEach(p=>{ if(!out.kit2plates[k].includes(p)) out.kit2plates[k].push(p); }); });
+  (c.kitnames||[]).forEach(k=>{ if(!out.kitnames.includes(k)) out.kitnames.push(k); });
+  const blob=new Blob([JSON.stringify(out,null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='shared_plates.json'; a.click(); URL.revokeObjectURL(a.href);
+}
+async function loadShared(){
+  try{ const r=await fetch('shared_plates.json',{cache:'no-store'}); if(!r.ok) return;
+    const j=await r.json(); if(j&&j.plates) SHARED=j;
+  }catch(e){ /* offline / file:// — fine, built-ins still work */ }
+}
+function rebuildData(){
+  const prev={kit:$('kit').value,plate:$('plate').value,orient:$('orient').value};
+  DATA=JSON.parse(JSON.stringify(BUILTIN)); applyCustom();
+  initSelects(prev); renderCustomList(); refresh();
+}
+// ---------- plate file import (CSV / TSV / XLSX) ----------
+let NPFILE=null;  // {header:[], rows:[[]]}
+function parseDelim(text){
+  const delim = (text.split('\n')[0].match(/\t/g)||[]).length > (text.split('\n')[0].match(/,/g)||[]).length ? '\t' : ',';
+  const rows=[]; let row=[], cur='', q=false;
+  for(let i=0;i<text.length;i++){ const ch=text[i];
+    if(q){ if(ch==='"'){ if(text[i+1]==='"'){cur+='"';i++;} else q=false; } else cur+=ch; }
+    else if(ch==='"') q=true;
+    else if(ch===delim){ row.push(cur); cur=''; }
+    else if(ch==='\n'){ row.push(cur); rows.push(row); row=[]; cur=''; }
+    else if(ch!=='\r') cur+=ch;
+  }
+  if(cur!==''||row.length){ row.push(cur); rows.push(row); }
+  return rows.filter(r=>r.some(c=>String(c).trim()!==''));
+}
+async function inflateRaw(bytes){
+  const ds=new DecompressionStream('deflate-raw');
+  const buf=await new Response(new Blob([bytes]).stream().pipeThrough(ds)).arrayBuffer();
+  return new Uint8Array(buf);
+}
+async function unzip(buf){
+  const dv=new DataView(buf), u8=new Uint8Array(buf); const files={};
+  let eocd=-1;
+  for(let i=u8.length-22;i>=0&&i>u8.length-65558;i--){ if(dv.getUint32(i,true)===0x06054b50){eocd=i;break;} }
+  if(eocd<0) throw new Error('not a zip');
+  let n=dv.getUint16(eocd+10,true), off=dv.getUint32(eocd+16,true);
+  for(let k=0;k<n;k++){
+    if(dv.getUint32(off,true)!==0x02014b50) break;
+    const method=dv.getUint16(off+10,true), csize=dv.getUint32(off+20,true);
+    const fnLen=dv.getUint16(off+28,true), exLen=dv.getUint16(off+30,true), cmLen=dv.getUint16(off+32,true);
+    const lho=dv.getUint32(off+42,true);
+    const name=new TextDecoder().decode(u8.subarray(off+46,off+46+fnLen));
+    const lfn=dv.getUint16(lho+26,true), lex=dv.getUint16(lho+28,true);
+    const dstart=lho+30+lfn+lex;
+    const raw=u8.subarray(dstart,dstart+csize);
+    files[name]= method===0 ? Promise.resolve(raw) : inflateRaw(raw);
+    off += 46+fnLen+exLen+cmLen;
+  }
+  for(const k of Object.keys(files)) files[k]=await files[k];
+  return files;
+}
+function colNum(ref){ const m=(ref||'').match(/^([A-Z]+)/); if(!m)return 0; let c=0;
+  for(const ch of m[1]) c=c*26+(ch.charCodeAt(0)-64); return c-1; }
+async function parseXlsx(buf){
+  const files=await unzip(buf); const dec=new TextDecoder();
+  let shared=[];
+  if(files['xl/sharedStrings.xml']){
+    const xml=dec.decode(files['xl/sharedStrings.xml']);
+    shared=[...xml.matchAll(/<si>([\s\S]*?)<\/si>/g)].map(m=>
+      [...m[1].matchAll(/<t[^>]*>([\s\S]*?)<\/t>/g)].map(t=>t[1]).join(''));
+    shared=shared.map(s=>s.replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&'));
+  }
+  // pick first worksheet
+  let wsName=Object.keys(files).filter(f=>/^xl\/worksheets\/sheet\d+\.xml$/.test(f)).sort()[0];
+  if(!wsName) throw new Error('no worksheet');
+  const xml=dec.decode(files[wsName]); const rows=[];
+  for(const rm of xml.matchAll(/<row[^>]*>([\s\S]*?)<\/row>/g)){
+    const cells=[];
+    for(const cm of rm[1].matchAll(/<c([^>]*)>([\s\S]*?)<\/c>|<c([^>]*)\/>/g)){
+      const attrs=cm[1]||cm[3]||'', inner=cm[2]||'';
+      const ref=(attrs.match(/r="([A-Z]+\d+)"/)||[])[1];
+      const t=(attrs.match(/t="([^"]+)"/)||[])[1];
+      let v='';
+      const vm=inner.match(/<v>([\s\S]*?)<\/v>/);
+      const im=inner.match(/<is>[\s\S]*?<t[^>]*>([\s\S]*?)<\/t>/);
+      if(t==='s'&&vm) v=shared[+vm[1]]||'';
+      else if(im) v=im[1];
+      else if(vm) v=vm[1];
+      v=String(v).replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&');
+      const ci=ref?colNum(ref):cells.length;
+      while(cells.length<ci) cells.push('');
+      cells[ci]=v;
+    }
+    rows.push(cells);
+  }
+  return rows.filter(r=>r.some(c=>String(c).trim()!==''));
+}
+const NPPAT={ well:/^(index[_ ]?plate[_ ]?)?well([_ ]?position)?$|^position$/i,
+  i7id:/^(i7[_ ]?index[_ ]?id|i7[_ ]?name|index1[_ ]?name|index[_ ]?id|name)$/i,
+  i7:/^(index|index1|i7|i7[_ ]?sequence|index1[_ ]?sequence|barcode[_ ]?sequence)$/i,
+  i5id:/^(i5[_ ]?index[_ ]?id|i5[_ ]?name|index2[_ ]?name)$/i,
+  i5:/^(index2|i5|i5[_ ]?sequence|index2[_ ]?sequence)$/i };
+function npDetect(header){
+  const g={}; const used=new Set();
+  ['well','i7','i5','i7id','i5id'].forEach(k=>{
+    let idx=header.findIndex((h,i)=>!used.has(i)&&NPPAT[k].test(String(h).trim()));
+    if(idx<0&&(k==='i7'||k==='i5')){ // fall back: a column that looks like DNA
+      idx=header.findIndex((h,i)=>!used.has(i)&&/sequence/i.test(String(h)));
+    }
+    if(idx>=0){ g[k]=idx; used.add(idx); }
+  });
+  return g;
+}
+function npFillSelects(header,guess){
+  document.querySelectorAll('#np_map select').forEach(sel=>{
+    const k=sel.dataset.map;
+    sel.innerHTML='<option value="">— none —</option>'+header.map((h,i)=>`<option value="${i}">${esc(String(h)||('col '+(i+1)))}</option>`).join('');
+    if(guess[k]!==undefined) sel.value=String(guess[k]);
+  });
+}
+function npApplyMapping(){
+  if(!NPFILE) return;
+  const get=k=>{const s=document.querySelector(`#np_map select[data-map="${k}"]`); return s.value===''?-1:+s.value;};
+  const iw=get('well'), i7=get('i7'), i7id=get('i7id'), i5=get('i5'), i5id=get('i5id');
+  if(iw<0||i7<0){ $('np_fmsg').style.color='var(--err)'; $('np_fmsg').textContent='Well and index columns are required.'; return; }
+  const out=['Well,I7_Index_ID,index,I5_Index_ID,index2'];
+  NPFILE.rows.forEach(r=>{
+    const cell=i=>i>=0?String(r[i]==null?'':r[i]).trim():'';
+    if(!cell(iw)||!cell(i7)) return;
+    out.push([cell(iw),cell(i7id),cell(i7).toUpperCase(),cell(i5id),cell(i5).toUpperCase()].join(','));
+  });
+  $('np_tbl').value=out.join('\n');
+  $('np_fmsg').style.color='var(--ok)'; $('np_fmsg').textContent=(out.length-1)+' rows ready — review, then Save plate.';
+}
+async function npLoadFile(file){
+  if(!file) return;
+  const msg=$('np_fmsg'); msg.style.color='var(--muted)'; msg.textContent='Reading '+file.name+'…';
+  try{
+    let rows;
+    if(/\.xlsx?$/i.test(file.name)){
+      if(/\.xls$/i.test(file.name)) throw new Error('Old .xls not supported — save as .xlsx or .csv');
+      rows=await parseXlsx(await file.arrayBuffer());
+    } else rows=parseDelim(await file.text());
+    if(!rows.length) throw new Error('no data found');
+    // find the header row: first row where >=2 cells match known column names
+    let hi=rows.findIndex(r=>['well','i7','i5','i7id','i5id'].filter(k=>r.some(c=>NPPAT[k].test(String(c).trim()))).length>=2);
+    if(hi<0) hi=0;
+    const header=rows[hi].map(c=>String(c).trim());
+    NPFILE={header, rows:rows.slice(hi+1)};
+    npFillSelects(header, npDetect(header));
+    $('np_map').style.display='';
+    if(!$('np_id').value.trim()) $('np_id').value=file.name.replace(/\.[^.]+$/,'');
+    msg.style.color='var(--ok)'; msg.textContent=`${file.name}: ${NPFILE.rows.length} rows, ${header.length} columns.`;
+    npApplyMapping();
+  }catch(e){
+    msg.style.color='var(--err)'; msg.textContent='Could not read file: '+e.message;
+    $('np_map').style.display='none'; NPFILE=null;
+  }
+}
+function parsePlateTable(txt){
+  const lines=txt.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+  let rows=lines.map(l=>l.split(/[\t,;]/).map(x=>x.trim()));
+  if(rows.length){ const h=rows[0].join(' ').toLowerCase();
+    if(/well|index|i7|i5|barcode/.test(h) && !/^[a-h]?\d/i.test(rows[0][0])) rows.shift(); }
+  const out=[],errs=[];
+  rows.forEach((c,i)=>{ const well=(c[0]||'').toUpperCase(),i7id=c[1]||'',i7=(c[2]||'').toUpperCase(),i5id=c[3]||'',i5=(c[4]||'').toUpperCase();
+    if(!well||!i7) return;
+    if(!/^[ACGT]+$/.test(i7)||(i5&&!/^[ACGT]+$/.test(i5))) errs.push('row '+(i+1));
+    out.push({well,i7id,i7,i5id,i5}); });
+  return {out,errs};
+}
+function renderCustomList(){
+  const c=loadCustom(); const el=$('customList'); const parts=[];
+  Object.keys(SHARED.plates||{}).forEach(id=>{
+    const kit=Object.entries(SHARED.kit2plates||{}).find(([k,a])=>a.includes(id)); const kn=kit?kit[0]:'?';
+    parts.push(`<div class="pill" style="margin:2px 4px 2px 0;background:var(--chip)">lab · ${id} <span class="count">(${kn}, ${SHARED.plates[id].length}w)</span></div>`); });
+  const plates=Object.keys(c.plates||{});
+  plates.forEach(id=>{ const kit=Object.entries(c.kit2plates||{}).find(([k,a])=>a.includes(id)); const kn=kit?kit[0]:'?';
+    parts.push(`<div class="pill ok" style="margin:2px 4px 2px 0">plate ${id} <span class="count">(${kn}, ${c.plates[id].length}w)</span> <button data-rmplate="${id}" style="padding:0 5px;border:none;background:none;color:var(--err)">✕</button></div>`); });
+  el.innerHTML=parts.length?parts.join(''):'None yet.';
+}
+// ---------- events ----------
+function initSelects(prev){
+  const kit=$('kit'); kit.innerHTML='';
+  DATA.kitnames.forEach(k=>{ if((DATA.kit2plates[k]||[]).length){const o=document.createElement('option');o.value=k;o.textContent=k;kit.appendChild(o);} });
+  if(prev&&prev.kit&&[...kit.options].some(o=>o.value===prev.kit)) kit.value=prev.kit;
+  if(prev&&prev.orient)$('orient').value=prev.orient;
+  $('kitlist').innerHTML=DATA.kitnames.map(k=>`<option value="${k}">`).join('');
+  renderPlates();
+  if(prev&&prev.plate&&[...$('plate').options].some(o=>o.value===prev.plate)) $('plate').value=prev.plate;
+  plateInfo();
+}
+document.addEventListener('input',e=>{
+  const t=e.target;
+  if(t.dataset && t.dataset.i!==undefined){
+    state.samples[+t.dataset.i][t.dataset.k]=t.value;
+    if(t.dataset.k==='name'||t.dataset.k==='well'||t.dataset.k==='plate') refresh();
+  }
+  if(['proj','r1','r2','i1c','i2c'].includes(t.id)) refresh();
+});
+document.addEventListener('change',e=>{
+  if(e.target.id==='kit'){ renderPlates(); plateInfo(); refresh(); }
+  if(e.target.id==='plate'){ plateInfo(); refresh(); }
+  if(e.target.id==='mixed'){ state.mixed=e.target.checked; refresh(); }
+  if(e.target.id==='orient'){ refresh(); }
+  if(e.target.id==='cust_import'){ importCustom(e.target.files[0]); }
+  if(e.target.id==='np_file'){ npLoadFile(e.target.files[0]); }
+  if(e.target.dataset && e.target.dataset.map!==undefined){ npApplyMapping(); }
+});
+document.addEventListener('click',e=>{
+  const d=e.target.dataset;
+  if(e.target.id==='addRow'){ state.samples.push({name:'',well:'',plate:''}); refresh(); }
+  if(e.target.id==='clearRows'){ state.samples=[{name:'',well:'',plate:''}]; refresh(); }
+  if(d && d.del!==undefined){ state.samples.splice(+d.del,1); if(!state.samples.length)state.samples=[{name:'',well:'',plate:''}]; refresh(); }
+  if(e.target.id==='applyBulk'||e.target.id==='appendBulk'){
+    const lines=$('bulk').value.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+    let cols=lines.map(l=>l.split(/[\t,;]/).map(x=>x.trim()));
+    // auto-skip a header row (e.g. "Sample ID | Barcode")
+    if(cols.length){
+      const c0=(cols[0][0]||''), c1=(cols[0][1]||'');
+      const kw=/^(barcode|well|index|sample|name|id|sample[ _]?id|sample[ _]?name)$/i;
+      const looksData = /^\d+$/.test(c1) || /^[A-Ha-h]\s*\d/.test(c1);
+      if(/^(barcode|well|index)$/i.test(c1) || (kw.test(c0)&&!looksData)) cols.shift();
+    }
+    const parsed=cols.map(p=>({name:p[0]||'',well:p[1]||'',plate:''}));
+    if(!parsed.length) return;
+    state.samples = e.target.id==='appendBulk' ? state.samples.filter(s=>s.name||s.well).concat(parsed) : parsed;
+    refresh();
+  }
+  if(e.target.id==='download'){ downloadCsv(); }
+  if(e.target.id==='records'){ downloadRecords(); }
+  if(e.target.id==='np_save'){ savePlate(); }
+  if(e.target.id==='np_apply'){ npApplyMapping(); }
+  if(e.target.id==='cust_export'){ const blob=new Blob([JSON.stringify(loadCustom(),null,2)],{type:'application/json'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='samplesheet_custom_data.json';a.click();URL.revokeObjectURL(a.href); }
+  if(d && d.rmplate!==undefined){ const c=loadCustom(); delete (c.plates||{})[d.rmplate];
+    Object.keys(c.kit2plates||{}).forEach(k=>{ c.kit2plates[k]=c.kit2plates[k].filter(p=>p!==d.rmplate);
+      if(!c.kit2plates[k].length){ delete c.kit2plates[k]; c.kitnames=(c.kitnames||[]).filter(x=>x!==k); } });
+    saveCustom(c); rebuildData(); }
+  if(d && d.rmapp!==undefined){ const c=loadCustom(); c.readlen=(c.readlen||[]).filter(r=>r.lib!==d.rmapp); saveCustom(c); rebuildData(); }
+  if(e.target.id==='copy'){ navigator.clipboard.writeText($('out').textContent).then(()=>{e.target.textContent='Copied!';setTimeout(()=>e.target.textContent='Copy sheet text',1200);}); }
+  if(e.target.id==='bsCopy'){ copyForBaseSpace(e.target); }
+  if(e.target.id==='cust_git'){ exportForGit(); }
+});
+// tab-separated rows for pasting into the BaseSpace Run Planning sample table
+function baseSpaceTSV(){
+  const c=compute(); const cy=getCycles(c); const rc=$('orient').value==='rc';
+  const hasI5 = cy.i2>0 && (c.maxI5||0)>0;
+  return c.rows.filter(r=>r.rec&&r.name).map(r=>{
+    let i5v=r.i5f||r.i5; if(rc) i5v=revcomp(i5v);
+    return [r.name, r.i7f||r.i7].concat(hasI5?[i5v]:[]).join('\t');
+  }).join('\n');
+}
+function copyForBaseSpace(btn){
+  const txt=baseSpaceTSV();
+  if(!txt){ alert('No samples with valid indexes to copy.'); return; }
+  navigator.clipboard.writeText(txt).then(()=>{
+    const n=txt.split('\n').length;
+    btn.textContent=`✓ ${n} rows copied`; setTimeout(()=>btn.textContent='📋 Copy for BaseSpace',1600);
+  });
+}
+function savePlate(){
+  const kit=$('np_kit').value.trim(), id=$('np_id').value.trim(), msg=$('np_msg');
+  if(!kit||!id){ msg.style.color='var(--err)'; msg.textContent='Kit and Plate ID required.'; return; }
+  if(BUILTIN.plates[id]){ msg.style.color='var(--err)'; msg.textContent='“'+id+'” is a built-in plate ID — choose another.'; return; }
+  const {out,errs}=parsePlateTable($('np_tbl').value);
+  if(!out.length){ msg.style.color='var(--err)'; msg.textContent='No valid rows found.'; return; }
+  const c=loadCustom(); c.plates=c.plates||{}; c.kit2plates=c.kit2plates||{}; c.kitnames=c.kitnames||[];
+  c.plates[id]=out; c.kit2plates[kit]=c.kit2plates[kit]||[]; if(!c.kit2plates[kit].includes(id))c.kit2plates[kit].push(id);
+  if(!BUILTIN.kitnames.includes(kit)&&!c.kitnames.includes(kit)) c.kitnames.push(kit);
+  saveCustom(c); rebuildData();
+  msg.style.color='var(--ok)'; msg.textContent='Saved '+id+' ('+out.length+' wells)'+(errs.length?' — '+errs.length+' non-ACGT warning(s)':'');
+  $('np_id').value=''; $('np_tbl').value='';
+}
+function downloadCsv(){
+  const c=compute(),v=validate(c);
+  if(!v.nFilled){ alert('No samples with valid indexes to export.'); return; }
+  const txt=buildSheet(c);
+  const blob=new Blob([txt],{type:'text/csv'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download=$('out').dataset.name||'SampleSheet.csv'; a.click(); URL.revokeObjectURL(a.href);
+}
+function csvCell(v){ v=(v==null?'':String(v)); return /[",\r\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }
+function downloadRecords(){
+  const c=compute(),v=validate(c);
+  const rows=c.rows.filter(r=>r.rec&&r.name);
+  if(!rows.length){ alert('No samples with valid indexes to export.'); return; }
+  const proj=$('proj').value.trim();
+  const cy=getCycles(c);
+  const runCycles=`R1:${cy.r1} R2:${cy.r2} I1:${cy.i1} I2:${cy.i2}`;
+  const hdr=['Sample_ID','Project_name','Run_cycles','Index_Plate','Index_Plate_Well',
+    'I7_Index_ID','index','I5_Index_ID','index2','index_final','index2_final','padded'];
+  const lines=[hdr.join(',')];
+  rows.forEach(r=>{
+    lines.push([r.name,proj,runCycles,r.plateId,r.well,r.i7id,r.i7,r.i5id,r.i5,
+      r.i7f||r.i7,r.i5f||r.i5, r.padded?'yes':'no'].map(csvCell).join(','));
+  });
+  const projS=(proj||'Run').replace(/[^A-Za-z0-9_\-]/g,'_');
+  const d=new Date();
+  const ymd=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  const blob=new Blob([lines.join('\r\n')],{type:'text/csv'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download=ymd+'_'+projS+'.csv'; a.click(); URL.revokeObjectURL(a.href);
+}
+
+applyCustom(); initSelects(); renderCustomList(); refresh();
+// pull lab-shared plates (works when served over http, e.g. GitHub Pages)
+loadShared().then(()=>{ if(SHARED.plates) rebuildData(); });
+</script>

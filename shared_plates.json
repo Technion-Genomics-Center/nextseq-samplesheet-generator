@@ -1,0 +1,6 @@
+{
+  "_comment": "Lab-shared index plates, loaded by the app at runtime. Generate with the app's 'shared_plates.json (for git)' button, then commit this file.",
+  "kitnames": [],
+  "kit2plates": {},
+  "plates": {}
+}

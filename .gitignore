@@ -1,0 +1,47 @@
+# --- OS / editor cruft ---
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+.Spotlight-V100
+.Trashes
+*.swp
+*~
+.idea/
+.vscode/
+*.code-workspace
+
+# --- Excel / Office temp + lock files ---
+~$*
+*.tmp
+.~lock.*#
+
+# --- Python (build tooling) ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+*.egg-info/
+.ipynb_checkpoints/
+
+# --- Node (if tooling is ever added) ---
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# --- Scratch / local working files ---
+_*.js
+_*.json
+_*.xlsx
+_*.csv
+scratch/
+tmp/
+
+# --- Generated or run-specific outputs (never commit real sample data) ---
+SampleSheet_*.csv
+Records_*.csv
+[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]_*.csv
+
+# NOTE: shared_plates.json IS tracked on purpose — it holds the lab's
+# shared index plates and is loaded by the app at runtime.
