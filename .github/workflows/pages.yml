@@ -1,0 +1,47 @@
+name: Deploy to GitHub Pages
+
+# The app is a self-contained static site, so there is nothing to build:
+# publish the repository as-is. Uses the GitHub Actions Pages deployment
+# rather than the legacy Jekyll builder, which fails on this repo.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Let a running deploy finish; queue at most one more.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify the built app is in sync with its sources
+        run: |
+          python3 build.py
+          if ! git diff --quiet -- index.html; then
+            echo "::error::index.html is stale. Run 'python build.py' and commit the result."
+            git diff --stat -- index.html
+            exit 1
+          fi
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
