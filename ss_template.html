@@ -73,6 +73,10 @@ pre.out{background:#0b1119;color:#cfe3ff;border:1px solid var(--line);border-rad
 .prow .field{margin-bottom:8px}
 button.rmproj{border-color:transparent;color:var(--err);margin-bottom:8px;padding:8px 10px}
 .pchip{display:inline-block;font-size:10px;padding:1px 6px;border-radius:20px;background:var(--chip);color:var(--muted);margin-right:6px}
+details.ppaste{margin:0 0 8px}
+details.ppaste summary{cursor:pointer;font-size:12px;color:var(--accent);list-style:none;outline:none;padding:2px 0}
+details.ppaste summary::-webkit-details-marker{display:none}
+details.ppaste textarea{min-height:88px;margin-top:8px}
 details#manageCard summary{cursor:pointer;list-style:none;font-size:14px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:600;outline:none}
 details#manageCard summary::-webkit-details-marker{display:none}
 details#manageCard summary::before{content:'▸ ';color:var(--accent)}
@@ -261,6 +265,18 @@ function hamming(a,b){
   return d;
 }
 function revcomp(s){ const m={A:'T',T:'A',G:'C',C:'G',N:'N'}; return (s||'').toUpperCase().split('').reverse().map(c=>m[c]||c).join(''); }
+// split pasted text into columns, dropping a header row if present
+function parseSampleLines(text){
+  const lines=(text||'').split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+  const cols=lines.map(l=>l.split(/[\t,;]/).map(x=>x.trim()));
+  if(cols.length){
+    const c0=(cols[0][0]||''), c1=(cols[0][1]||'');
+    const kw=/^(barcode|well|index|sample|name|id|sample[ _]?id|sample[ _]?name)$/i;
+    const looksData = /^\d+$/.test(c1) || /^[A-Ha-h]\s*\d/.test(c1);
+    if(/^(barcode|well|index|position)$/i.test(c1) || (kw.test(c0)&&!looksData)) cols.shift();
+  }
+  return cols;
+}
 function importCustom(file){ if(!file)return; const rd=new FileReader();
   rd.onload=()=>{ try{ saveCustom(JSON.parse(rd.result)); rebuildData(); }catch(e){ alert('Invalid backup file (not JSON).'); } };
   rd.readAsText(file); }
@@ -455,6 +471,7 @@ function renderProjects(){
   const box=$('projList'); box.innerHTML='';
   const many=state.projects.length>1;
   state.projects.forEach((p,i)=>{
+    const nInProj=state.samples.filter(s=>clampProj(s.proj)===i && ((s.name||'').trim()||(s.well||'').trim())).length;
     const rec=DATA.plates[p.plate];
     const info = rec
       ? `<span class="pchip">${SHARED.plates&&SHARED.plates[p.plate]?'lab':'plate'}</span>${p.plate} · ${rec.length} wells · index <b>${rec[0].i7.length} bp</b> · <span class="mono">${rec[0].well}–${rec[rec.length-1].well}</span>`
@@ -467,7 +484,19 @@ function renderProjects(){
       <div class="field"><label>Index plate type (kit)</label><select data-p="${i}" data-pk="kit">${kitOpts}</select></div>
       <div class="field"><label>Index plate ID</label><select data-p="${i}" data-pk="plate">${plOpts}</select></div>
       ${many?`<button class="rmproj" data-rmproj="${i}" title="Remove project">✕</button>`:'<span></span>'}
-    </div><div class="hint" style="margin:-2px 0 8px">${info}</div>`;
+    </div><div class="hint" style="margin:-2px 0 8px">${info}</div>
+    <details class="ppaste" ${p.pasteOpen?'open':''} data-pd="${i}">
+      <summary>⤓ Paste samples into ${esc(projLabel(i))} <span class="count">— ${nInProj} sample(s)</span></summary>
+      <textarea data-p="${i}" data-pk="paste" placeholder="Sample ID&#9;Barcode&#10;1&#9;97&#10;2&#9;98">${esc(p.paste||'')}</textarea>
+      <div class="toolbar" style="margin-top:8px">
+        <button class="primary" data-ppadd="${i}">Add to this project</button>
+        <button class="ghost" data-ppset="${i}">Replace this project's samples</button>
+        <span class="count" id="ppmsg${i}"></span>
+      </div>
+    </details>`;
+    // 'toggle' doesn't bubble, so bind it per row to remember open/closed across re-renders
+    const det=div.querySelector('details.ppaste');
+    if(det) det.addEventListener('toggle',()=>{ p.pasteOpen=det.open; });
     box.appendChild(div);
   });
   const n=state.projects.length;
@@ -749,6 +778,10 @@ document.addEventListener('input',e=>{
     state.samples[+t.dataset.i][k] = (k==='proj')? +t.value : t.value;
     if(k==='name'||k==='well'||k==='proj') refresh();
   }
+  // per-project paste box: keep the text in state, don't re-render (would lose focus)
+  if(t.dataset && t.dataset.p!==undefined && t.dataset.pk==='paste'){
+    state.projects[+t.dataset.p].paste=t.value;
+  }
   // project name typed: update state without re-rendering the row (keeps focus/caret)
   if(t.dataset && t.dataset.p!==undefined && t.dataset.pk==='name'){
     state.projects[+t.dataset.p].name=t.value;
@@ -778,6 +811,22 @@ document.addEventListener('click',e=>{
     state.samples.push({name:'',well:'',proj:last?clampProj(last.proj):0}); refresh(); }
   if(e.target.id==='clearRows'){ state.samples=[{name:'',well:'',proj:0}]; refresh(); }
   if(d && d.del!==undefined){ state.samples.splice(+d.del,1); if(!state.samples.length)state.samples=[{name:'',well:'',proj:0}]; refresh(); }
+  if(d && (d.ppadd!==undefined || d.ppset!==undefined)){
+    const pi=clampProj(+(d.ppadd!==undefined?d.ppadd:d.ppset));
+    const P=state.projects[pi];
+    const rows=parseSampleLines(P.paste||'').map(x=>({name:x[0]||'',well:x[1]||'',proj:pi}));
+    const msg=$('ppmsg'+pi);
+    if(!rows.length){ if(msg){msg.style.color='var(--err)'; msg.textContent='Nothing to add.';} return; }
+    // drop placeholder blank rows so the first paste replaces them
+    let keep=state.samples.filter(s=>(s.name||'').trim()||(s.well||'').trim());
+    if(d.ppset!==undefined) keep=keep.filter(s=>clampProj(s.proj)!==pi);
+    state.samples=keep.concat(rows);
+    if(!state.samples.length) state.samples=[{name:'',well:'',proj:0}];
+    P.paste=''; P.pasteOpen=true;
+    renderProjects(); refresh();
+    const m2=$('ppmsg'+pi); if(m2){ m2.style.color='var(--ok)';
+      m2.textContent=(d.ppset!==undefined?'Replaced with ':'Added ')+rows.length+' sample(s)'; }
+  }
   if(e.target.id==='addProj'){
     const src=state.projects[state.projects.length-1]||{};
     state.projects.push({name:'',kit:src.kit||'',plate:src.plate||''});
@@ -794,15 +843,7 @@ document.addEventListener('click',e=>{
     }
   }
   if(e.target.id==='applyBulk'||e.target.id==='appendBulk'){
-    const lines=$('bulk').value.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
-    let cols=lines.map(l=>l.split(/[\t,;]/).map(x=>x.trim()));
-    // auto-skip a header row (e.g. "Sample ID | Barcode")
-    if(cols.length){
-      const c0=(cols[0][0]||''), c1=(cols[0][1]||'');
-      const kw=/^(barcode|well|index|sample|name|id|sample[ _]?id|sample[ _]?name)$/i;
-      const looksData = /^\d+$/.test(c1) || /^[A-Ha-h]\s*\d/.test(c1);
-      if(/^(barcode|well|index)$/i.test(c1) || (kw.test(c0)&&!looksData)) cols.shift();
-    }
+    const cols=parseSampleLines($('bulk').value);
     const target=clampProj(+$('bulkProj').value||0);
     // optional 3rd column names a project; match existing ones, otherwise create it
     const findProj=(nm)=>{

@@ -21,7 +21,11 @@ Single self-contained HTML file — no install, no server, no dependencies. It a
    e1	A01	DoritExome
    ```
 
-   Accepts `A01`, `A1`, `1A`, `12H`, Smart-seq codes like `U025`, and plate barcode numbers (`97` → well `A01`). A header row is skipped automatically. The **third column (project) is optional** — without it, rows go to the project picked in the "assign to" dropdown; a project name that doesn't exist yet is created.
+   Accepts `A01`, `A1`, `1A`, `12H`, Smart-seq codes like `U025`, and plate barcode numbers (`97` → well `A01`). A header row is skipped automatically.
+
+   **Two ways to load a multi-project run:**
+   - **Per project (easiest)** — every project card has its own *"⤓ Paste samples into &lt;project&gt;"* box. Paste that customer's list, click **Add to this project**, and the rows are assigned automatically; nothing to switch by hand. **Replace this project's samples** swaps out just that project's rows and leaves the others alone.
+   - **One combined paste** — use the bulk box at the bottom of the Samples card with an optional **third project column**, or pick a target in the *"assign to"* dropdown. A project name that doesn't exist yet is created.
 4. **Validation (live)** — always across the **whole run**, since all projects are demultiplexed together:
    - Sample names must be **unique across the entire run**, including between projects.
    - Spaces and special characters are converted to `_` (every change is listed). Project names too — they become the `Sample_Project` folder.
