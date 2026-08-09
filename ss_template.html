@@ -68,7 +68,9 @@ input.badseq{border-color:var(--err)!important;background:rgba(255,107,107,.08)}
 .chkline{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink);margin-bottom:12px}
 .chkline input{width:auto}
 .legend{font-size:11px;color:var(--muted);margin-top:8px}
-.projrow{border:1px solid var(--line);border-radius:10px;padding:12px 12px 4px;margin-bottom:10px;background:var(--panel2)}
+/* no box-in-a-box: a single project reads as part of its card; extra projects get a divider */
+.projrow{border:0;background:none;padding:0;margin:0}
+.projrow + .projrow{border-top:1px solid var(--line);margin-top:16px;padding-top:16px}
 .prow{display:grid;grid-template-columns:1.3fr 1fr 1fr auto;gap:10px;align-items:end}
 @media(max-width:640px){.prow{grid-template-columns:1fr 1fr}}
 .prow .field{margin-bottom:8px}
@@ -534,7 +536,7 @@ function renderProjects(){
         ? `<span class="pchip">${SHARED.plates&&SHARED.plates[p.plate]?'lab':'plate'}</span>${p.plate} · ${rec.length} wells · index <b>${rec[0].i7.length} bp</b> · <span class="mono">${rec[0].well}–${rec[rec.length-1].well}</span>`
         : '<span style="color:var(--warn)">No index sequences available for this plate.</span>');
     const kitOpts=kitList().map(k=>`<option value="${esc(k)}" ${k===p.kit?'selected':''}>${esc(k)}</option>`).join('')
-      +`<option value="${CUSTOM}" ${p.custom?'selected':''}>— Customer-provided sequences —</option>`;
+      +`<option value="${CUSTOM}" ${p.custom?'selected':''}>Custom — enter sequences directly</option>`;
     const plOpts=p.custom
       ? '<option value="">n/a — sequences per sample</option>'
       : (DATA.kit2plates[p.kit]||[]).map(x=>`<option value="${esc(x)}" ${x===p.plate?'selected':''}>${esc(x)}${DATA.plates[x]?'':' (no data)'}</option>`).join('');
@@ -546,7 +548,7 @@ function renderProjects(){
       ${many?`<button class="rmproj" data-rmproj="${i}" title="Remove project">✕</button>`:'<span></span>'}
     </div><div class="hint" style="margin:-2px 0 8px">${info}</div>
     <details class="ppaste" ${p.pasteOpen?'open':''} data-pd="${i}">
-      <summary>⤓ Paste samples into ${esc(projLabel(i))} <span class="count">— ${nInProj} sample(s)</span></summary>
+      <summary>${p.custom?'⤓ Add samples with their index sequences':'⤓ Paste samples into '+esc(projLabel(i))} <span class="count">— ${nInProj} sample(s)</span></summary>
       <textarea data-p="${i}" data-pk="paste" placeholder="${p.custom?'Sample&#9;index (i7)&#9;index2 (i5)&#10;lib_1&#9;AAGGAGCG&#9;GACTATTG&#10;lib_2&#9;GTCATCTA&#9;GCGGTTCT':'Sample ID&#9;Barcode&#10;1&#9;97&#10;2&#9;98'}">${esc(p.paste||'')}</textarea>
       <div class="toolbar" style="margin-top:8px">
         <button class="primary" data-ppadd="${i}">Add to this project</button>
@@ -950,7 +952,9 @@ document.addEventListener('change',e=>{
   const d=e.target.dataset;
   if(d && d.p!==undefined && (d.pk==='kit'||d.pk==='plate')){
     const p=state.projects[+d.p];
-    if(d.pk==='kit'){ p.kit=e.target.value; const pl=DATA.kit2plates[p.kit]||[]; p.plate=pl[0]||''; }
+    if(d.pk==='kit'){ p.kit=e.target.value; const pl=DATA.kit2plates[p.kit]||[]; p.plate=pl[0]||'';
+      if(p.kit===CUSTOM) p.pasteOpen=true;   // surface the sequence entry straight away
+    }
     else p.plate=e.target.value;
     renderProjects(); refresh();
   }
