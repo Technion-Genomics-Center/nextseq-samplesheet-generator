@@ -12,6 +12,8 @@ Single self-contained HTML file — no install, no server, no dependencies. It a
 
 1. **Run setup** — run name and sequencing cycles (Read 1 / Read 2, with Index 1 / Index 2 auto-detected from the chosen indexes and overridable).
 2. **Projects** — a run can hold **several projects, each with its own index kit and plate**. Add a project per customer/application; samples are assigned to one. With one project the extra controls stay hidden, so simple runs look exactly as before.
+
+   For customer-prepared libraries that arrive with **index sequences instead of a plate well**, set the project's kit to **“— Customer-provided sequences —”**. Its samples then take i7/i5 sequences directly (typed, or pasted as `name / i7 / i5`, or `name / i7+i5`). These mix freely with plate-based projects in the same run and go through exactly the same uniqueness and length checks.
 3. **Samples** — type them in, or bulk-paste. Barcode numbers, plate wells and well aliases all resolve:
 
    ```
@@ -39,6 +41,16 @@ Single self-contained HTML file — no install, no server, no dependencies. It a
    - **Copy for BaseSpace** — tab-separated rows to paste straight into the [Run Planning sample table](https://basespace.illumina.com/run-planning/config/1/sample-analysis-setup).
    - **Sample sheet .csv** — BCL Convert v2 file to upload instead. Multi-project runs get a **`Sample_Project` column**, so BCL Convert writes FASTQs into one folder per project.
    - **Records .csv** — full archive table (project, plate, well, index IDs, raw + final sequences, and whether each index was padded or trimmed), named `YYYY-MM-DD_Run.csv`.
+
+### Index compatibility check
+
+A separate panel answers "can I use this index in this run?" without touching the sample list.
+
+- **Check** either a pasted list (sequences, `i7+i5`, or index IDs like `U097`) or **a whole index plate**.
+- **Against** either the samples currently in the run, or another index plate.
+- Anything closer than the minimum Hamming distance (default 3) is listed under **Do not use**, with what it clashes with and the distance. **Copy flagged list** puts those wells on the clipboard.
+
+Comparison happens at the **shortest common index length**, which is what the run would actually read — so checking a 10 bp plate against an 8 bp run compares the first 8 bases, the same way demultiplexing would. Checking a plate against the run also reports wells that are **already taken** by existing samples; checking a plate against itself correctly ignores each well matching itself.
 
 ### Index orientation
 

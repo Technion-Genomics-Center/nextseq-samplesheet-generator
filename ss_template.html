@@ -61,6 +61,7 @@ pre.out{background:#0b1119;color:#cfe3ff;border:1px solid var(--line);border-rad
   font-family:var(--mono);font-size:11.5px;line-height:1.5;overflow:auto;max-height:460px;white-space:pre;margin:0}
 @media(prefers-color-scheme:light){pre.out{background:#0d1826;color:#d5e8ff}}
 .cell-bad input{border-color:var(--err)!important;background:rgba(255,107,107,.08)}
+input.badseq{border-color:var(--err)!important;background:rgba(255,107,107,.08)}
 .cell-warn input{border-color:var(--warn)!important;background:rgba(242,181,68,.08)}
 .hint{color:var(--muted);font-size:12px;margin:-6px 0 10px}
 .count{font-size:12px;color:var(--muted)}
@@ -77,10 +78,10 @@ details.ppaste{margin:0 0 8px}
 details.ppaste summary{cursor:pointer;font-size:12px;color:var(--accent);list-style:none;outline:none;padding:2px 0}
 details.ppaste summary::-webkit-details-marker{display:none}
 details.ppaste textarea{min-height:88px;margin-top:8px}
-details#manageCard summary{cursor:pointer;list-style:none;font-size:14px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:600;outline:none}
-details#manageCard summary::-webkit-details-marker{display:none}
-details#manageCard summary::before{content:'▸ ';color:var(--accent)}
-details#manageCard[open] summary::before{content:'▾ '}
+details#manageCard summary,details#checkCard summary{cursor:pointer;list-style:none;font-size:14px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:600;outline:none}
+details#manageCard summary::-webkit-details-marker,details#checkCard summary::-webkit-details-marker{display:none}
+details#manageCard summary::before,details#checkCard summary::before{content:'▸ ';color:var(--accent)}
+details#manageCard[open] summary::before,details#checkCard[open] summary::before{content:'▾ '}
 a.dl{text-decoration:none}
 </style>
 
@@ -180,6 +181,37 @@ a.dl{text-decoration:none}
   </div>
  </div>
 
+ <details class="card" id="checkCard">
+  <summary>🔍 Index compatibility check <span class="count" style="text-transform:none;letter-spacing:0">— can these indexes be used in this run?</span></summary>
+  <div class="row2" style="align-items:start;margin-top:16px">
+   <div>
+    <div class="field"><label>Check these indexes</label>
+      <select id="ckQType">
+        <option value="paste">Pasted sequences or index IDs</option>
+        <option value="plate">A whole index plate</option>
+      </select>
+    </div>
+    <div class="field" id="ckQPlateWrap" style="display:none"><label>Plate to check</label><select id="ckQPlate"></select></div>
+    <div class="field" id="ckQPasteWrap">
+      <label>One per line — <span class="mono">AAGGAGCG</span>, <span class="mono">i7+i5</span>, or an index ID like <span class="mono">U097</span></label>
+      <textarea id="ckQ" placeholder="AAGGAGCG+GACTATTG&#10;U097&#10;TTACCGAC"></textarea>
+    </div>
+   </div>
+   <div>
+    <div class="field"><label>Against</label>
+      <select id="ckRef">
+        <option value="run">The samples currently in this run</option>
+        <option value="plate">An index plate</option>
+      </select>
+    </div>
+    <div class="field" id="ckRefPlateWrap" style="display:none"><label>Reference plate</label><select id="ckRefPlate"></select></div>
+    <div class="field"><label>Minimum Hamming distance <span class="count">(3 = standard)</span></label><input id="ckD" type="number" min="1" max="12" value="3"></div>
+    <div class="toolbar"><button id="ckRun" class="primary">Check compatibility</button><button id="ckCopy" class="ghost">Copy flagged list</button></div>
+   </div>
+  </div>
+  <div id="ckOut" class="hint">Compares the combined i7+i5 of each index against the reference. Anything closer than the minimum distance is flagged as unusable for this run.</div>
+ </details>
+
  <details class="card" id="manageCard">
   <summary>➕ Manage index plates <span class="count" style="text-transform:none;letter-spacing:0">— add your own, saved in this browser</span></summary>
   <div class="row2" style="align-items:start;margin-top:16px">
@@ -231,7 +263,10 @@ let DATA = JSON.parse(JSON.stringify(BUILTIN));
 </script>
 <script>
 const $=(id)=>document.getElementById(id);
+const CUSTOM='__custom__';   // project kit sentinel: sequences supplied by the customer, no plate
 let state={ projects:[{name:'',kit:'',plate:''}], samples:[{name:'',well:'',proj:0}] };
+function cleanSeq(s){ return (s||'').toUpperCase().replace(/[^A-Z]/g,''); }
+function badSeq(s){ return !!s && !/^[ACGTN]+$/.test(s); }
 function projLabel(i){ const p=state.projects[i]; return (p&&p.name.trim())||('Project '+(i+1)); }
 function clampProj(pi){ return Math.min(Math.max(0,pi|0), state.projects.length-1); }
 
@@ -286,13 +321,22 @@ function compute(){
   const rows=state.samples.map((s,i)=>{
     const pi=clampProj(s.proj);
     const P=state.projects[pi]||{};
-    const plateId=P.plate||'';
+    const custom=!!P.custom;
+    const plateId=custom?'custom':(P.plate||'');
     const nameRaw=s.name||'';
     const name=sanitizeName(nameRaw);
-    const well=resolveWell(s.well, plateId);
-    const rec= well? wellRec(plateId,well):null;
+    let well=null, rec=null, seqBad=false;
+    if(custom){
+      const i7=cleanSeq(s.i7), i5=cleanSeq(s.i5);
+      seqBad = badSeq(i7)||badSeq(i5);
+      well='';
+      if(i7 && !seqBad) rec={well:'',i7id:'custom',i7:i7,i5id:'custom',i5:i5};
+    } else {
+      well=resolveWell(s.well, plateId);
+      rec= well? wellRec(plateId,well):null;
+    }
     const projRaw=(P.name||'').trim();
-    return {i, nameRaw, name, changed: name!==nameRaw.trim(), wellRaw:s.well, plateId, well, rec,
+    return {i, nameRaw, name, changed: name!==nameRaw.trim(), wellRaw:s.well, plateId, well, rec, custom, seqBad,
             projIdx:pi, projRaw, projName:sanitizeName(projRaw), projLabel:projLabel(pi),
             i7: rec?rec.i7:'', i5: rec?rec.i5:'', i7id:rec?rec.i7id:'', i5id:rec?rec.i5id:''};
   });
@@ -365,13 +409,21 @@ function validate(c){
   const dups=Object.entries(byName).filter(([k,v])=>v.length>1);
   if(dups.length){ issues.push({t:'err',h:`Duplicate sample name(s): ${dups.map(d=>d[0]).join(', ')}`,
     s:'Sample names must be unique across the entire run, including between projects.'}); dups.forEach(d=>d[1].forEach(r=>badName.add(r.i))); }
+  // customer-provided sequences
+  const seqBad=c.rows.filter(r=>r.custom&&r.seqBad);
+  if(seqBad.length){ issues.push({t:'err',h:`${seqBad.length} customer-provided sequence(s) are not valid DNA`,
+    s:seqBad.map(r=>`row ${r.i+1}: ${r.name||'(unnamed)'} — only A, C, G, T, N allowed`).join(', ')});
+    seqBad.forEach(r=>badWell.add(r.i)); }
+  const seqMissing=c.rows.filter(r=>r.custom&&!r.seqBad&&r.nameRaw.trim()&&!r.rec);
+  if(seqMissing.length) issues.push({t:'err',h:`${seqMissing.length} customer-provided sample(s) have no i7 sequence`,
+    s:seqMissing.map(r=>r.name||('row '+(r.i+1))).join(', ')});
   // wells
-  const rowsWithWell=c.rows.filter(r=>r.wellRaw&&r.wellRaw.trim());
+  const rowsWithWell=c.rows.filter(r=>!r.custom&&r.wellRaw&&r.wellRaw.trim());
   const unresolved=rowsWithWell.filter(r=>!r.rec);
   if(unresolved.length){ issues.push({t:'err',h:`${unresolved.length} well(s) not found in their project's plate`,
     s:unresolved.map(r=>`row ${r.i+1}: “${r.wellRaw}”${multi?' ('+r.projLabel+' / '+(r.plateId||'no plate')+')':''}`).join(', ')}); unresolved.forEach(r=>badWell.add(r.i)); }
   // duplicate wells (same plate+well used twice)
-  const byWell={}; c.filled.forEach(r=>{const k=r.plateId+'|'+r.well;(byWell[k]=byWell[k]||[]).push(r)});
+  const byWell={}; c.filled.filter(r=>!r.custom).forEach(r=>{const k=r.plateId+'|'+r.well;(byWell[k]=byWell[k]||[]).push(r)});
   const dupW=Object.entries(byWell).filter(([k,v])=>v.length>1);
   if(dupW.length){ issues.push({t:'warn',h:`Same index well used by multiple samples`,
     s:dupW.map(([k,v])=>k.split('|')[1]+' ×'+v.length).join(', ')}); dupW.forEach(([k,v])=>v.forEach(r=>badWell.add(r.i))); }
@@ -459,6 +511,8 @@ function buildSheet(c){
 function kitList(){ return DATA.kitnames.filter(k=>(DATA.kit2plates[k]||[]).length); }
 function normalizeProjects(){
   state.projects.forEach(p=>{
+    p.custom = p.kit===CUSTOM;
+    if(p.custom){ p.plate=''; return; }
     const kits=kitList();
     if(!kits.includes(p.kit)) p.kit=kits[0]||'';
     const plates=DATA.kit2plates[p.kit]||[];
@@ -473,21 +527,27 @@ function renderProjects(){
   state.projects.forEach((p,i)=>{
     const nInProj=state.samples.filter(s=>clampProj(s.proj)===i && ((s.name||'').trim()||(s.well||'').trim())).length;
     const rec=DATA.plates[p.plate];
-    const info = rec
-      ? `<span class="pchip">${SHARED.plates&&SHARED.plates[p.plate]?'lab':'plate'}</span>${p.plate} · ${rec.length} wells · index <b>${rec[0].i7.length} bp</b> · <span class="mono">${rec[0].well}–${rec[rec.length-1].well}</span>`
-      : '<span style="color:var(--warn)">No index sequences available for this plate.</span>';
-    const kitOpts=kitList().map(k=>`<option value="${esc(k)}" ${k===p.kit?'selected':''}>${esc(k)}</option>`).join('');
-    const plOpts=(DATA.kit2plates[p.kit]||[]).map(x=>`<option value="${esc(x)}" ${x===p.plate?'selected':''}>${esc(x)}${DATA.plates[x]?'':' (no data)'}</option>`).join('');
+    const nCust=state.samples.filter(s=>clampProj(s.proj)===i&&cleanSeq(s.i7)).length;
+    const info = p.custom
+      ? `<span class="pchip">custom</span>Index sequences supplied per sample — ${nCust} with a sequence. No plate or well needed.`
+      : (rec
+        ? `<span class="pchip">${SHARED.plates&&SHARED.plates[p.plate]?'lab':'plate'}</span>${p.plate} · ${rec.length} wells · index <b>${rec[0].i7.length} bp</b> · <span class="mono">${rec[0].well}–${rec[rec.length-1].well}</span>`
+        : '<span style="color:var(--warn)">No index sequences available for this plate.</span>');
+    const kitOpts=kitList().map(k=>`<option value="${esc(k)}" ${k===p.kit?'selected':''}>${esc(k)}</option>`).join('')
+      +`<option value="${CUSTOM}" ${p.custom?'selected':''}>— Customer-provided sequences —</option>`;
+    const plOpts=p.custom
+      ? '<option value="">n/a — sequences per sample</option>'
+      : (DATA.kit2plates[p.kit]||[]).map(x=>`<option value="${esc(x)}" ${x===p.plate?'selected':''}>${esc(x)}${DATA.plates[x]?'':' (no data)'}</option>`).join('');
     const div=document.createElement('div'); div.className='projrow';
     div.innerHTML=`<div class="prow">
       <div class="field"><label>Project name${many?' <span class="count">(required)</span>':''}</label><input data-p="${i}" data-pk="name" value="${esc(p.name)}" placeholder="e.g. NaamaG_RNAseq"></div>
       <div class="field"><label>Index plate type (kit)</label><select data-p="${i}" data-pk="kit">${kitOpts}</select></div>
-      <div class="field"><label>Index plate ID</label><select data-p="${i}" data-pk="plate">${plOpts}</select></div>
+      <div class="field"><label>Index plate ID</label><select data-p="${i}" data-pk="plate" ${p.custom?'disabled':''}>${plOpts}</select></div>
       ${many?`<button class="rmproj" data-rmproj="${i}" title="Remove project">✕</button>`:'<span></span>'}
     </div><div class="hint" style="margin:-2px 0 8px">${info}</div>
     <details class="ppaste" ${p.pasteOpen?'open':''} data-pd="${i}">
       <summary>⤓ Paste samples into ${esc(projLabel(i))} <span class="count">— ${nInProj} sample(s)</span></summary>
-      <textarea data-p="${i}" data-pk="paste" placeholder="Sample ID&#9;Barcode&#10;1&#9;97&#10;2&#9;98">${esc(p.paste||'')}</textarea>
+      <textarea data-p="${i}" data-pk="paste" placeholder="${p.custom?'Sample&#9;index (i7)&#9;index2 (i5)&#10;lib_1&#9;AAGGAGCG&#9;GACTATTG&#10;lib_2&#9;GTCATCTA&#9;GCGGTTCT':'Sample ID&#9;Barcode&#10;1&#9;97&#10;2&#9;98'}">${esc(p.paste||'')}</textarea>
       <div class="toolbar" style="margin-top:8px">
         <button class="primary" data-ppadd="${i}">Add to this project</button>
         <button class="ghost" data-ppset="${i}">Replace this project's samples</button>
@@ -524,12 +584,18 @@ function renderTable(v){
       const opts=state.projects.map((p,pi)=>`<option value="${pi}" ${pi===r.projIdx?'selected':''}>${esc(projLabel(pi))}</option>`).join('');
       projCell=`<td><select data-i="${i}" data-k="proj">${opts}</select></td>`;
     }
+    const seqCell=(v)=> v.i7f&&v.i7f!==v.i7 ? '<span style="color:var(--warn)">'+v.i7f+'</span>' : (v.i7||'<span class="count">—</span>');
+    const seqCell2=(v)=> v.i5f&&v.i5f!==v.i5 ? '<span style="color:var(--warn)">'+v.i5f+'</span>' : (v.i5||'<span class="count">—</span>');
     tr.innerHTML=`<td class="idx">${i+1}</td>`+
       `<td class="${nameCls}"><input data-i="${i}" data-k="name" value="${esc(s.name)}" placeholder="sample name"></td>`+
       projCell+
-      `<td class="${wellCls}"><input list="wl_${cssId(r.plateId)}" data-i="${i}" data-k="well" value="${esc(s.well)}" placeholder="A01" style="max-width:90px"></td>`+
-      `<td class="seq">${r.i7f&&r.i7f!==r.i7?'<span style="color:var(--warn)">'+r.i7f+'</span>':(r.i7||'<span class="count">—</span>')}</td>`+
-      `<td class="seq">${r.i5f&&r.i5f!==r.i5?'<span style="color:var(--warn)">'+r.i5f+'</span>':(r.i5||'<span class="count">—</span>')}</td>`+
+      (r.custom
+        ? `<td class="${wellCls}"><span class="count">seq →</span></td>`+
+          `<td class="${r.seqBad?'cell-bad':''}"><input class="mono" data-i="${i}" data-k="i7" value="${esc(s.i7||'')}" placeholder="i7 sequence" style="max-width:130px"></td>`+
+          `<td><input class="mono" data-i="${i}" data-k="i5" value="${esc(s.i5||'')}" placeholder="i5 sequence" style="max-width:130px"></td>`
+        : `<td class="${wellCls}"><input list="wl_${cssId(r.plateId)}" data-i="${i}" data-k="well" value="${esc(s.well)}" placeholder="A01" style="max-width:90px"></td>`+
+          `<td class="seq">${seqCell(r)}</td>`+
+          `<td class="seq">${seqCell2(r)}</td>`)+
       `<td class="del"><button data-del="${i}">✕</button></td>`;
     tb.appendChild(tr);
   });
@@ -571,6 +637,89 @@ function refresh(){
   renderTable(v); renderIssues(v); renderOut(c,v);
 }
 
+// ---------- index compatibility check ----------
+function ckPlateOpts(){
+  const opts=Object.keys(DATA.plates).map(p=>`<option value="${esc(p)}">${esc(p)}</option>`).join('');
+  ['ckQPlate','ckRefPlate'].forEach(id=>{ const el=$(id); if(!el) return;
+    const keep=el.value; el.innerHTML=opts; if(keep&&DATA.plates[keep]) el.value=keep; });
+}
+// resolve the indexes being checked
+function ckQuery(){
+  if($('ckQType').value==='plate'){
+    const p=$('ckQPlate').value;
+    return (DATA.plates[p]||[]).map(w=>({label:`${w.well} (${w.i7id})`, plate:p, well:w.well, i7:w.i7, i5:w.i5}));
+  }
+  const out=[];
+  ($('ckQ').value||'').split(/\r?\n/).map(s=>s.trim()).filter(Boolean).forEach(line=>{
+    const t=line.replace(/\s+/g,'');
+    if(/^[ACGTNacgtn]+([+\-_][ACGTNacgtn]+)?$/.test(t)){
+      const parts=t.toUpperCase().split(/[+\-_]/);
+      out.push({label:line, i7:parts[0], i5:parts[1]||''});
+      return;
+    }
+    // otherwise treat it as an index ID and look it up across every known plate
+    const hits=[];
+    Object.entries(DATA.plates).forEach(([pid,wells])=>wells.forEach(w=>{
+      if(String(w.i7id).toUpperCase()===t.toUpperCase()) hits.push({pid,w});
+    }));
+    if(hits.length) out.push({label:`${line} → ${hits[0].pid} ${hits[0].w.well}`, plate:hits[0].pid, well:hits[0].w.well,
+                              i7:hits[0].w.i7, i5:hits[0].w.i5, ambiguous:hits.length>1});
+    else out.push({label:line, unknown:true});
+  });
+  return out;
+}
+function ckReference(){
+  if($('ckRef').value==='plate'){
+    const p=$('ckRefPlate').value;
+    return (DATA.plates[p]||[]).map(w=>({label:`${p} ${w.well} (${w.i7id})`, plate:p, well:w.well, i7:w.i7, i5:w.i5}));
+  }
+  const c=compute();
+  return c.rows.filter(r=>r.rec&&r.name).map(r=>({
+    label:`${r.name}${r.custom?' [customer seq]':' ['+r.plateId+' '+r.well+']'}`,
+    plate:r.custom?null:r.plateId, well:r.custom?null:r.well,
+    i7:r.i7f||r.i7, i5:r.i5f||r.i5 }));
+}
+let CKFLAGGED=[];
+function ckRunCheck(){
+  const q=ckQuery(), ref=ckReference(), minD=Math.max(1,+$('ckD').value||3);
+  const unknown=q.filter(x=>x.unknown), known=q.filter(x=>!x.unknown);
+  const box=$('ckOut');
+  if(!known.length){ box.innerHTML='<span class="pill err">Nothing to check</span> Enter sequences or index IDs first.'+
+    (unknown.length?` <span class="count">Unrecognised: ${unknown.map(u=>esc(u.label)).join(', ')}</span>`:''); CKFLAGGED=[]; return; }
+  if(!ref.length){ box.innerHTML='<span class="pill err">No reference</span> The run has no samples with indexes yet — add samples, or check against a plate instead.'; CKFLAGGED=[]; return; }
+  // compare on the shortest common length, which is what the run would actually read
+  const all=known.concat(ref);
+  const l7=Math.min(...all.map(x=>(x.i7||'').length).filter(n=>n>0));
+  const f5=all.map(x=>(x.i5||'').length).filter(n=>n>0);
+  const l5=f5.length?Math.min(...f5):0;
+  const cut=x=>((x.i7||'').slice(0,l7))+((x.i5||'').slice(0,l5));
+  // Only treat a plate/well pair as "itself" when comparing a plate against a plate.
+  // Against the run, a well that is already in use must still be reported as taken.
+  const refIsRun=$('ckRef').value==='run';
+  const same=(a,b)=>!refIsRun && a.plate&&b.plate&&a.plate===b.plate&&a.well===b.well;
+  const res=known.map(x=>{
+    const xs=cut(x);
+    const hits=ref.filter(y=>!same(x,y)).map(y=>({y,d:hamming(xs,cut(y))}))
+      .filter(o=>o.d<minD).sort((a,b)=>a.d-b.d);
+    return {x,hits};
+  });
+  const bad=res.filter(r=>r.hits.length), good=res.filter(r=>!r.hits.length);
+  CKFLAGGED=bad.map(r=>r.x.well?`${r.x.plate||''} ${r.x.well}`.trim():r.x.label);
+  let h=`<div class="toolbar" style="margin-bottom:10px">`+
+    `<span class="pill ${bad.length?'err':'ok'}">${bad.length} unusable</span>`+
+    `<span class="pill ok">${good.length} OK</span>`+
+    `<span class="count">compared at ${l7}${l5?'+'+l5:''} bp vs ${ref.length} reference index(es), min distance ${minD}</span></div>`;
+  if(unknown.length) h+=`<div class="pill warn" style="margin-bottom:8px">Unrecognised: ${unknown.map(u=>esc(u.label)).join(', ')}</div>`;
+  if(bad.length){
+    h+='<table><thead><tr><th>Do not use</th><th>Clashes with</th><th>Distance</th></tr></thead><tbody>'+
+      bad.map(r=>`<tr><td class="mono" style="color:var(--err)">${esc(r.x.label)}</td>`+
+        `<td>${esc(r.hits[0].y.label)}${r.hits.length>1?` <span class="count">+${r.hits.length-1} more</span>`:''}</td>`+
+        `<td>${r.hits[0].d}</td></tr>`).join('')+'</tbody></table>';
+  } else {
+    h+='<div class="pill ok">All checked indexes are compatible.</div>';
+  }
+  box.innerHTML=h;
+}
 // ---------- custom data (localStorage overlay on BUILTIN) ----------
 function loadCustom(){ try{return JSON.parse(localStorage.getItem('ss_custom'))||{}}catch(e){return {}} }
 function saveCustom(c){ localStorage.setItem('ss_custom',JSON.stringify(c)); }
@@ -769,6 +918,7 @@ function renderCustomList(){
 function initSelects(prev){
   if(prev&&prev.orient)$('orient').value=prev.orient;
   $('kitlist').innerHTML=DATA.kitnames.map(k=>`<option value="${k}">`).join('');
+  ckPlateOpts();
   renderProjects();
 }
 document.addEventListener('input',e=>{
@@ -776,7 +926,11 @@ document.addEventListener('input',e=>{
   if(t.dataset && t.dataset.i!==undefined){
     const k=t.dataset.k;
     state.samples[+t.dataset.i][k] = (k==='proj')? +t.value : t.value;
-    if(k==='name'||k==='well'||k==='proj') refresh();
+    if(k==='i7'||k==='i5'){   // don't re-render: keep focus while typing a sequence
+      const c=compute(), v=validate(c); renderIssues(v); renderOut(c,v);
+      t.classList.toggle('badseq', badSeq(cleanSeq(t.value)));
+    }
+    else if(k==='name'||k==='well'||k==='proj') refresh();
   }
   // per-project paste box: keep the text in state, don't re-render (would lose focus)
   if(t.dataset && t.dataset.p!==undefined && t.dataset.pk==='paste'){
@@ -801,6 +955,9 @@ document.addEventListener('change',e=>{
     renderProjects(); refresh();
   }
   if(e.target.id==='orient'){ refresh(); }
+  if(e.target.id==='ckQType'){ const p=e.target.value==='plate';
+    $('ckQPlateWrap').style.display=p?'':'none'; $('ckQPasteWrap').style.display=p?'none':''; }
+  if(e.target.id==='ckRef'){ $('ckRefPlateWrap').style.display=e.target.value==='plate'?'':'none'; }
   if(e.target.id==='cust_import'){ importCustom(e.target.files[0]); }
   if(e.target.id==='np_file'){ npLoadFile(e.target.files[0]); }
   if(e.target.dataset && e.target.dataset.map!==undefined){ npApplyMapping(); }
@@ -814,7 +971,15 @@ document.addEventListener('click',e=>{
   if(d && (d.ppadd!==undefined || d.ppset!==undefined)){
     const pi=clampProj(+(d.ppadd!==undefined?d.ppadd:d.ppset));
     const P=state.projects[pi];
-    const rows=parseSampleLines(P.paste||'').map(x=>({name:x[0]||'',well:x[1]||'',proj:pi}));
+    const rows=parseSampleLines(P.paste||'').map(x=>{
+      if(P.custom){
+        // name, i7, i5   — or   name, "i7+i5" / "i7-i5"
+        let i7=x[1]||'', i5=x[2]||'';
+        if(!i5 && /[+\-_]/.test(i7)){ const parts=i7.split(/[+\-_]/); i7=parts[0]; i5=parts[1]||''; }
+        return {name:x[0]||'',well:'',i7:cleanSeq(i7),i5:cleanSeq(i5),proj:pi};
+      }
+      return {name:x[0]||'',well:x[1]||'',proj:pi};
+    });
     const msg=$('ppmsg'+pi);
     if(!rows.length){ if(msg){msg.style.color='var(--err)'; msg.textContent='Nothing to add.';} return; }
     // drop placeholder blank rows so the first paste replaces them
@@ -861,6 +1026,12 @@ document.addEventListener('click',e=>{
   }
   if(e.target.id==='download'){ downloadCsv(); }
   if(e.target.id==='records'){ downloadRecords(); }
+  if(e.target.id==='ckRun'){ ckRunCheck(); }
+  if(e.target.id==='ckCopy'){
+    if(!CKFLAGGED.length){ alert('Nothing flagged — run a check first.'); return; }
+    navigator.clipboard.writeText(CKFLAGGED.join('\n')).then(()=>{
+      e.target.textContent=`✓ ${CKFLAGGED.length} copied`; setTimeout(()=>e.target.textContent='Copy flagged list',1600); });
+  }
   if(e.target.id==='np_save'){ savePlate(); }
   if(e.target.id==='np_apply'){ npApplyMapping(); }
   if(e.target.id==='cust_export'){ const blob=new Blob([JSON.stringify(loadCustom(),null,2)],{type:'application/json'});
