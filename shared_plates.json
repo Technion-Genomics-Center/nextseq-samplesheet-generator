@@ -1,6 +1,12 @@
 {
-  "_comment": "Lab-shared index plates, loaded by the app at runtime. Generate with the app's 'shared_plates.json (for git)' button, then commit this file.",
-  "kitnames": [],
-  "kit2plates": {},
+  "_comment": "Lab-shared index plates and kits, merged over the built-in set at runtime. Generate with the app's 'shared_plates.json (for git)' button, then commit this file. Hand-written entries survive that button, because the export starts from this file.",
+  "kitnames": [
+    "Dual Index Plate TS Set A"
+  ],
+  "kit2plates": {
+    "Dual Index Plate TS Set A": [
+      "TS_setA"
+    ]
+  },
   "plates": {}
 }

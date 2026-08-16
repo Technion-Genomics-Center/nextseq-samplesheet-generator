@@ -31,6 +31,7 @@ npm-debug.log*
 yarn-error.log*
 
 # --- Scratch / local working files ---
+*.bak
 _*.js
 _*.json
 _*.xlsx
