@@ -1,0 +1,91 @@
+{
+  "name": "SampleSheet generator",
+  "slug": "samplesheet",
+  "order": 4,
+  "status": "live",
+  "icon": "samplesheet.png",
+  "repo": "own",
+  "tagline": "Builds a BCL Convert v2 sample sheet for a NextSeq 2000 run, checking sample names and index collisions across the whole run as you type.",
+  "who": "Whoever plans a run and has to be sure two samples cannot demultiplex into each other.",
+  "url": "https://technion-genomics-center.github.io/nextseq-samplesheet-generator/",
+  "launcher": [],
+  "readme": "README.md",
+  "reads": [
+    "Samplesheet_generator/samplesheet_data.json",
+    "Samplesheet_generator/shared_plates.json"
+  ],
+  "writes": [],
+  "owns": [
+    "Samplesheet_generator/samplesheet_data.json",
+    "Samplesheet_generator/shared_plates.json"
+  ],
+  "docs": [
+    "docs/01_Current_State.md"
+  ],
+  "notes": {
+    "use": "One web page and nothing else — no install, no server, no black window. It also works with no internet: save `index.html` and double-click it.\n\nIt is the **authority on indexes**. Nothing else in the platform decides whether two barcodes can be sequenced together, and nothing else should: the Hamming distance rule, the mixed-length reconciliation and the padding table were hard-won, and they live here."
+  },
+  "sections": {
+    "use": [
+      "What it does",
+      "Index compatibility check",
+      "Index orientation"
+    ],
+    "change": [
+      "Adding index plates",
+      "Sharing plates with the whole lab",
+      "Built-in index kits"
+    ],
+    "built": [
+      "Repository layout",
+      "Rebuilding"
+    ]
+  },
+  "change": [
+    {
+      "what": "Add an index plate for yourself",
+      "tool": null,
+      "manual": "In the app: **➕ Manage index plates** at the bottom. Upload the vendor's `.csv`, `.tsv` or `.xlsx`, or paste the table. The plate is saved in your browser and is available immediately — to you only."
+    },
+    {
+      "what": "Publish an index plate to the whole lab",
+      "tool": null,
+      "manual": "Click **⬇ shared_plates.json (for git)**, which merges the lab's existing plates with yours, then commit that file to the root of the repository. Once GitHub Pages redeploys, every user sees the plate as `lab · <name>`. ProjectHub reads the same file, so the plate reaches the library-prep dropdowns too. The file is currently empty, and correctly so — nobody has added a plate yet."
+    },
+    {
+      "what": "Change a built-in kit or add read-length defaults",
+      "tool": null,
+      "manual": "Edit `Samplesheet_generator/samplesheet_data.json`, then `python build.py` to regenerate `index.html`. Never hand-edit `index.html` — it is generated."
+    }
+  ],
+  "quick": [
+    "Open the app in a browser. There is nothing to install.",
+    "Run setup: run name and cycles. Index cycles are detected from the chosen kit.",
+    "Add one project per customer or application, each with its own index kit and plate.",
+    "Type or bulk-paste samples: Sample ID, barcode or well, project.",
+    "Validation runs live across the WHOLE run, not per project.",
+    "Fix anything red — duplicate names, wells, or indexes closer than Hamming 3.",
+    "Copy for BaseSpace, or download the sample sheet .csv.",
+    "Download the Records .csv too: it is the archive of what was actually loaded."
+  ],
+  "shots": [],
+  "keywords": [
+    "sample sheet",
+    "samplesheet",
+    "index",
+    "indexes",
+    "barcode",
+    "demultiplex",
+    "bcl convert",
+    "basespace",
+    "plate",
+    "well",
+    "hamming",
+    "collision",
+    "nextseq",
+    "run",
+    "i7",
+    "i5",
+    "padding"
+  ]
+}
