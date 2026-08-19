@@ -110,7 +110,6 @@ a.dl{text-decoration:none}
       <label>Application <span class="count">(optional — fills the read lengths)</span></label>
       <input id="app" list="appList" placeholder="type or pick, e.g. RNA-seq" autocomplete="off">
       <datalist id="appList"></datalist>
-      <div class="hint" id="appHint" style="margin-top:6px" hidden></div>
     </div>
     <label style="margin-bottom:8px">Sequencing setting</label>
     <div class="row2">
@@ -1137,19 +1136,10 @@ function appByName(n){
   return APPS.find(a=>a.name.trim().toLowerCase()===n)||null;
 }
 function applyApp(){
-  const hint=$('appHint'), a=appByName($('app').value);
-  if(!a){ hint.hidden=true; return; }
+  const a=appByName($('app').value);
+  if(!a) return;
   $('r1').value=a.read1;
   $('r2').value=a.read2;
-  const bits=[];
-  bits.push('Read 1 '+a.read1+(a.read2?' · Read 2 '+a.read2:' · single-end'));
-  if(a.kit_cycles) bits.push(a.kit_cycles+'-cycle kit');
-  if(a.index1!=null) bits.push('usually i7 '+a.index1+(a.index2!=null?' / i5 '+a.index2:''));
-  // An unverified row is one no historical run confirmed. Say so here rather
-  // than let it look as settled as RNA-seq, which 142 runs stand behind.
-  if(a.status==='unverified') bits.push('not seen in any past run — check it');
-  hint.textContent=bits.join(' · ');
-  hint.hidden=false;
   refresh();
 }
 function initApps(){
