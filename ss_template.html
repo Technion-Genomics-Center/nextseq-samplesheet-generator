@@ -102,6 +102,16 @@ a.dl{text-decoration:none}
       <label>Run name</label>
       <input id="proj" placeholder="e.g. NS2000_run_42" autocomplete="off">
     </div>
+    <!-- Free text with a dropdown, not a <select>: the list is what the lab
+         has actually run, and a new chemistry must not have to wait for a
+         rebuild before anyone can type its name. Picking a listed one fills
+         the read lengths below; typing anything else leaves them alone. -->
+    <div class="field">
+      <label>Application <span class="count">(optional — fills the read lengths)</span></label>
+      <input id="app" list="appList" placeholder="type or pick, e.g. RNA-seq" autocomplete="off">
+      <datalist id="appList"></datalist>
+      <div class="hint" id="appHint" style="margin-top:6px" hidden></div>
+    </div>
     <label style="margin-bottom:8px">Sequencing setting</label>
     <div class="row2">
       <div class="field"><label>Read 1 cycles</label><input id="r1" type="number" min="0" placeholder="100" value="100"></div>
@@ -261,6 +271,10 @@ a.dl{text-decoration:none}
 
 <script>
 const BUILTIN = /*DATA_PLACEHOLDER*/;
+// Read lengths per application, recovered from the read configuration recorded
+// in the lab reports on the share. Built by tools/build_sequencing_defaults.py
+// in the atgc-platform repo; see sequencing_defaults.json beside this file.
+const APPS = /*APPS_PLACEHOLDER*/;
 let DATA = JSON.parse(JSON.stringify(BUILTIN));
 </script>
 <script>
@@ -1112,7 +1126,41 @@ function downloadRecords(){
   a.download=ymd+'_'+projS+'.csv'; a.click(); URL.revokeObjectURL(a.href);
 }
 
-applyCustom(); initSelects(); renderCustomList(); refresh();
+// ---------- application presets ----------
+// Picking an application fills Read 1 and Read 2, and deliberately nothing
+// else. The index cycle fields stay on auto, because the app already works
+// those out from the index plates actually selected for THIS run, which beats
+// what the application usually uses. Where the two disagree the hint says so,
+// rather than the app silently overruling the plates.
+function appByName(n){
+  n=(n||'').trim().toLowerCase();
+  return APPS.find(a=>a.name.trim().toLowerCase()===n)||null;
+}
+function applyApp(){
+  const hint=$('appHint'), a=appByName($('app').value);
+  if(!a){ hint.hidden=true; return; }
+  $('r1').value=a.read1;
+  $('r2').value=a.read2;
+  const bits=[];
+  bits.push('Read 1 '+a.read1+(a.read2?' · Read 2 '+a.read2:' · single-end'));
+  if(a.kit_cycles) bits.push(a.kit_cycles+'-cycle kit');
+  if(a.index1!=null) bits.push('usually i7 '+a.index1+(a.index2!=null?' / i5 '+a.index2:''));
+  // An unverified row is one no historical run confirmed. Say so here rather
+  // than let it look as settled as RNA-seq, which 142 runs stand behind.
+  if(a.status==='unverified') bits.push('not seen in any past run — check it');
+  hint.textContent=bits.join(' · ');
+  hint.hidden=false;
+  refresh();
+}
+function initApps(){
+  const dl=$('appList'), inp=$('app');
+  if(!dl||!inp||!APPS.length) return;
+  dl.innerHTML=APPS.map(a=>'<option value="'+esc(a.name)+'">').join('');
+  inp.addEventListener('input',applyApp);
+  inp.addEventListener('change',applyApp);
+}
+
+applyCustom(); initSelects(); renderCustomList(); initApps(); refresh();
 // pull lab-shared plates (works when served over http, e.g. GitHub Pages)
 loadShared().then(()=>{ if(SHARED.plates) rebuildData(); });
 </script>
