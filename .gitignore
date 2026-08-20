@@ -46,3 +46,6 @@ Records_*.csv
 
 # NOTE: shared_plates.json IS tracked on purpose — it holds the lab's
 # shared index plates and is loaded by the app at runtime.
+
+# Timestamped copies taken before any data write.
+_backups/
