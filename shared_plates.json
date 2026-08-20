@@ -1,12 +1,75 @@
 {
   "_comment": "Lab-shared index plates and kits, merged over the built-in set at runtime. Generate with the app's 'shared_plates.json (for git)' button, then commit this file. Hand-written entries survive that button, because the export starts from this file.",
   "kitnames": [
-    "Dual Index Plate TS Set A"
+    "Dual Index Plate TS Set A",
+    "Illumina Single Cell Unique Dual Indexes"
   ],
   "kit2plates": {
     "Dual Index Plate TS Set A": [
       "TS_setA"
+    ],
+    "Illumina Single Cell Unique Dual Indexes": [
+      "SC_UDI_Mix_20137528"
     ]
   },
-  "plates": {}
+  "plates": {
+    "SC_UDI_Mix_20137528": [
+      {
+        "well": "MIX1",
+        "i7id": "SCUDP0017",
+        "i7": "GAGAATGGTT",
+        "i5id": "SCUDP0017",
+        "i5": "TCGGCAGCAA"
+      },
+      {
+        "well": "MIX2",
+        "i7id": "SCUDP0018",
+        "i7": "AGAGGCAACC",
+        "i5id": "SCUDP0018",
+        "i5": "CTAATGATGG"
+      },
+      {
+        "well": "MIX3",
+        "i7id": "SCUDP0019",
+        "i7": "CCATCATTAG",
+        "i5id": "SCUDP0019",
+        "i5": "GGTTGCCTCT"
+      },
+      {
+        "well": "MIX4",
+        "i7id": "SCUDP0020",
+        "i7": "GATAGGCCGA",
+        "i5id": "SCUDP0020",
+        "i5": "CGCACATGGC"
+      },
+      {
+        "well": "MIX5",
+        "i7id": "SCUDP0021",
+        "i7": "ATGGTTGACT",
+        "i5id": "SCUDP0021",
+        "i5": "GGCCTGTCCT"
+      },
+      {
+        "well": "MIX6",
+        "i7id": "SCUDP0022",
+        "i7": "TATTGCGCTC",
+        "i5id": "SCUDP0022",
+        "i5": "CTGTGTTAGG"
+      },
+      {
+        "well": "MIX7",
+        "i7id": "SCUDP0023",
+        "i7": "ACGCCTTGTT",
+        "i5id": "SCUDP0023",
+        "i5": "TAAGGAACGT"
+      },
+      {
+        "well": "MIX8",
+        "i7id": "SCUDP0024",
+        "i7": "TTCTACATAC",
+        "i5id": "SCUDP0024",
+        "i5": "CTAACTGTAA"
+      }
+    ]
+  }
 }
