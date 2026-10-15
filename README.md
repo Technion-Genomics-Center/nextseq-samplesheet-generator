@@ -18,9 +18,9 @@ Single self-contained HTML file — no install, no server, no dependencies. It a
 
    ```
    Sample ID	Barcode	Project
-   1	97	NaamaG_RNAseq
-   2	98	NaamaG_RNAseq
-   e1	A01	DoritExome
+   1	97	UserA_RNAseq
+   2	98	UserA_RNAseq
+   e1	A01	UserB_Exome
    ```
 
    Accepts `A01`, `A1`, `1A`, `12H`, Smart-seq codes like `U025`, and plate barcode numbers (`97` → well `A01`). A header row is skipped automatically.
